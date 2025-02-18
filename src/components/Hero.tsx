@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 export const Hero = () => {
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-white to-gray-50">
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-white to-gray-50 pt-16">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[linear-gradient(110deg,#f5f7fa,#e4e9f2)] opacity-50" />
         <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(2,166,79,0.05)_1px,transparent_1px)] bg-[length:20px_20px]" />
