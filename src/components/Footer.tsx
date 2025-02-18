@@ -8,7 +8,7 @@ export const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <h3 className="font-heading text-xl font-bold text-primary mb-4">
-              Bet Journal
+              Puntpad
             </h3>
             <p className="text-gray-600 max-w-md">
               Track your bets, analyze performance, and discover winning trends with our intuitive betting journal.
@@ -72,7 +72,7 @@ export const Footer = () => {
         
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-center text-gray-600 text-sm">
-            © {new Date().getFullYear()} Bet Journal. All rights reserved.
+            © {new Date().getFullYear()} Puntpad. All rights reserved.
           </p>
         </div>
       </div>
