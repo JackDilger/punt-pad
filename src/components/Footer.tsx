@@ -1,5 +1,7 @@
 
 import { Instagram, Twitter, Github } from "lucide-react";
+import { Button } from "./ui/button";
+import { Link } from "react-router-dom";
 
 export const Footer = () => {
   return (
@@ -13,6 +15,11 @@ export const Footer = () => {
             <p className="text-gray-400 mb-6">
               Meet your intelligent betting assistant
             </p>
+            <Button asChild variant="secondary" className="hover:bg-white hover:text-gray-900">
+              <Link to="/signup">
+                Start Tracking
+              </Link>
+            </Button>
           </div>
 
           {/* Use Cases */}
