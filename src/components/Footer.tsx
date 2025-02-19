@@ -1,79 +1,119 @@
 
-import { Instagram, Linkedin, Twitter } from "lucide-react";
+import { Instagram, Twitter, Github } from "lucide-react";
 
 export const Footer = () => {
   return (
-    <footer className="bg-gray-50 border-t border-gray-100">
-      <div className="container px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="col-span-1 md:col-span-2">
-            <h3 className="font-heading text-xl font-bold text-primary mb-4">
-              Puntpad
-            </h3>
-            <p className="text-gray-600 max-w-md">
-              Track your bets, analyze performance, and discover winning trends with our intuitive betting journal.
+    <footer className="bg-[#1A1F2C] text-gray-300">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          {/* Brand Section */}
+          <div className="col-span-1">
+            <h3 className="text-white font-heading text-xl font-bold mb-4">Puntpad</h3>
+            <p className="text-gray-400 mb-6">
+              Meet your intelligent betting assistant
             </p>
           </div>
-          
-          <div>
-            <h4 className="font-heading font-semibold text-gray-900 mb-4">
-              Links
+
+          {/* Use Cases */}
+          <div className="col-span-1">
+            <h4 className="text-white font-heading text-lg font-semibold mb-4">
+              Use Cases
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary transition-colors">
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Sports Betting
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Horse Racing
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Fantasy Sports
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Tools */}
+          <div className="col-span-1">
+            <h4 className="text-white font-heading text-lg font-semibold mb-4">
+              Tools
+            </h4>
+            <ul className="space-y-3">
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Bet Calculator
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Odds Converter
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Performance Analytics
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Strategy Builder
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div className="col-span-1">
+            <h4 className="text-white font-heading text-lg font-semibold mb-4">
+              Company
+            </h4>
+            <ul className="space-y-3">
+              <li>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   About Us
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary transition-colors">
-                  Contact
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  Careers
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary transition-colors">
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary transition-colors">
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
                   Terms of Service
                 </a>
               </li>
             </ul>
           </div>
-          
-          <div>
-            <h4 className="font-heading font-semibold text-gray-900 mb-4">
-              Follow Us
-            </h4>
-            <div className="flex space-x-4">
-              <a
-                href="#"
-                className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors"
-              >
-                <Twitter className="w-5 h-5" />
-              </a>
-              <a
-                href="#"
-                className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors"
-              >
-                <Linkedin className="w-5 h-5" />
-              </a>
-              <a
-                href="#"
-                className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-primary hover:text-white transition-colors"
-              >
-                <Instagram className="w-5 h-5" />
-              </a>
-            </div>
-          </div>
         </div>
-        
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <p className="text-center text-gray-600 text-sm">
-            © {new Date().getFullYear()} Puntpad. All rights reserved.
-          </p>
+
+        {/* Footer Bottom */}
+        <div className="pt-8 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center">
+          <div className="text-gray-400 mb-4 md:mb-0">
+            © {new Date().getFullYear()} Puntpad, Inc. All rights reserved.
+          </div>
+          <div className="flex space-x-6">
+            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <Twitter className="h-5 w-5" />
+            </a>
+            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <Instagram className="h-5 w-5" />
+            </a>
+            <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <Github className="h-5 w-5" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
