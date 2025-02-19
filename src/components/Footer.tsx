@@ -11,9 +11,9 @@ export const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           {/* Brand Section */}
           <div className="col-span-1">
-            <h3 className="text-white font-heading text-xl font-bold mb-4">Puntpad</h3>
+            <h3 className="text-white font-heading text-xl font-bold mb-4">Meet your intelligent betting assistant</h3>
             <p className="text-gray-400 mb-6">
-              Meet your intelligent betting assistant
+              Puntpad
             </p>
             <Button asChild className="bg-primary hover:bg-primary-hover text-white">
               <Link to="/signup">
