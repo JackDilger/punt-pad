@@ -15,7 +15,7 @@ export const Footer = () => {
             <p className="text-gray-400 mb-6">
               Meet your intelligent betting assistant
             </p>
-            <Button asChild variant="secondary" className="hover:bg-white hover:text-gray-900">
+            <Button asChild className="bg-primary hover:bg-primary-hover text-white">
               <Link to="/signup">
                 Start Tracking
               </Link>
