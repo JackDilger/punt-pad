@@ -153,10 +153,10 @@ const Auth = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="flex justify-center">
-            <img src="/logo.png" alt="Puntpad Logo" className="w-12 h-12" />
+            <span className="text-xl font-heading font-bold text-gray-900">Puntpad</span>
           </div>
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            {isSignUp ? "Create your account" : "Sign in to your Puntpad account"}
+            {isSignUp ? "Create your account" : "Sign in to Puntpad"}
           </h2>
         </div>
 
