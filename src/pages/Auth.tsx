@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { toast } = useToast();
@@ -26,6 +27,31 @@ const Auth = () => {
         provider: 'google',
       });
       if (error) throw error;
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      toast({
+        title: "Check your email",
+        description: "We've sent you a password reset link.",
+      });
+      setIsResetPassword(false);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -73,6 +99,55 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  if (isResetPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+              Reset your password
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+          </div>
+
+          <form className="mt-8 space-y-6" onSubmit={handlePasswordReset}>
+            <div>
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+              />
+            </div>
+
+            <div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? "Sending..." : "Send reset link"}
+              </Button>
+            </div>
+
+            <div className="text-center">
+              <Button
+                variant="link"
+                className="text-sm"
+                onClick={() => setIsResetPassword(false)}
+              >
+                Back to login
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -143,6 +218,19 @@ const Auth = () => {
                 placeholder="Password"
                 minLength={6}
               />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <Button
+                variant="link"
+                type="button"
+                className="text-sm"
+                onClick={() => setIsResetPassword(true)}
+              >
+                Forgot your password?
+              </Button>
             </div>
           </div>
 
