@@ -27,7 +27,6 @@ export const BetEntry = () => {
     if (usesFractionalOdds) {
       newSelections[index].odds = value;
     } else {
-      // If decimal odds, store as is
       newSelections[index].odds = value;
     }
     setSelections(newSelections);
@@ -58,14 +57,14 @@ export const BetEntry = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-4">
         <CardTitle>Enter Horse Racing Bet</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-6">
+        <form className="space-y-4">
           {/* Bet Type Selection */}
-          <div className="space-y-2">
-            <Label>Bet Type</Label>
+          <div className="flex items-center gap-4">
+            <Label className="w-20">Bet Type</Label>
             <RadioGroup
               defaultValue="Single"
               onValueChange={(value) => setBetType(value as "Single" | "Accumulator")}
@@ -83,68 +82,59 @@ export const BetEntry = () => {
           </div>
 
           {/* Selections */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {selections.map((selection, index) => (
-              <div key={index} className="space-y-4 p-4 border rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Selection {index + 1}</span>
-                  {betType === "Accumulator" && selections.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeSelection(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor={`event-${index}`}>Race</Label>
-                  <Input
-                    id={`event-${index}`}
-                    placeholder="e.g., Cheltenham 3:30"
-                    value={selection.event}
-                    onChange={(e) => {
-                      const newSelections = [...selections];
-                      newSelections[index].event = e.target.value;
-                      setSelections(newSelections);
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor={`horse-${index}`}>Horse & Bet</Label>
-                  <Input
-                    id={`horse-${index}`}
-                    placeholder="e.g., Constitution Hill to win"
-                    value={selection.horse}
-                    onChange={(e) => {
-                      const newSelections = [...selections];
-                      newSelections[index].horse = e.target.value;
-                      setSelections(newSelections);
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label htmlFor={`odds-${index}`}>Odds</Label>
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor="odds-format" className="text-sm">Fractional</Label>
-                      <Switch
-                        id="odds-format"
-                        checked={usesFractionalOdds}
-                        onCheckedChange={setUsesFractionalOdds}
-                      />
-                    </div>
+              <div key={index} className="bg-muted border rounded-lg p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`event-${index}`} className="text-sm">Race</Label>
+                    <Input
+                      id={`event-${index}`}
+                      placeholder="e.g., Cheltenham 3:30"
+                      value={selection.event}
+                      onChange={(e) => {
+                        const newSelections = [...selections];
+                        newSelections[index].event = e.target.value;
+                        setSelections(newSelections);
+                      }}
+                    />
                   </div>
-                  <Input
-                    id={`odds-${index}`}
-                    placeholder={usesFractionalOdds ? "e.g., 5/1" : "e.g., 6.0"}
-                    value={selection.odds}
-                    onChange={(e) => handleOddsChange(index, e.target.value)}
-                  />
+                  <div className="space-y-1">
+                    <Label htmlFor={`horse-${index}`} className="text-sm">Horse & Bet</Label>
+                    <Input
+                      id={`horse-${index}`}
+                      placeholder="e.g., Constitution Hill to win"
+                      value={selection.horse}
+                      onChange={(e) => {
+                        const newSelections = [...selections];
+                        newSelections[index].horse = e.target.value;
+                        setSelections(newSelections);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor={`odds-${index}`} className="text-sm">Odds</Label>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Label htmlFor="odds-format">Fractional</Label>
+                        <Switch
+                          id="odds-format"
+                          checked={usesFractionalOdds}
+                          onCheckedChange={setUsesFractionalOdds}
+                        />
+                      </div>
+                    </div>
+                    <Input
+                      id={`odds-${index}`}
+                      placeholder={usesFractionalOdds ? "e.g., 5/1" : "e.g., 6.0"}
+                      value={selection.odds}
+                      onChange={(e) => handleOddsChange(index, e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="stake" className="text-sm">Stake</Label>
+                    <Input id="stake" type="number" step="0.01" placeholder="10.00" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -162,43 +152,35 @@ export const BetEntry = () => {
             )}
           </div>
 
-          {/* Stake Input */}
-          <div className="space-y-2">
-            <Label htmlFor="stake">Stake</Label>
-            <Input id="stake" type="number" step="0.01" placeholder="10.00" />
-          </div>
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="each-way"
+                  checked={isEachWay}
+                  onCheckedChange={(checked) => setIsEachWay(checked as boolean)}
+                />
+                <Label htmlFor="each-way">Each Way</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="free-bet"
+                  checked={isFreeBet}
+                  onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
+                />
+                <Label htmlFor="free-bet">Free Bet</Label>
+              </div>
+            </div>
 
-          {/* Each Way & Free Bet Options */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="each-way"
-                checked={isEachWay}
-                onCheckedChange={(checked) => setIsEachWay(checked as boolean)}
-              />
-              <Label htmlFor="each-way">Each Way</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="free-bet"
-                checked={isFreeBet}
-                onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
-              />
-              <Label htmlFor="free-bet">Free Bet</Label>
-            </div>
+            <Button type="submit">Add Bet</Button>
           </div>
 
           {/* Total Odds Display for Accumulators */}
           {betType === "Accumulator" && selections.length > 1 && (
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="text-sm font-medium">Total Odds</div>
-              <div className="text-2xl font-bold">{calculateTotalOdds()}</div>
+            <div className="text-sm font-medium">
+              Total Odds: <span className="font-bold">{calculateTotalOdds()}</span>
             </div>
           )}
-
-          <Button type="submit" className="w-full">
-            Add Bet
-          </Button>
         </form>
       </CardContent>
     </Card>
