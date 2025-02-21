@@ -9,6 +9,91 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bets: {
+        Row: {
+          id: string
+          user_id: string
+          created_at: string
+          bet_type: 'Single' | 'Accumulator'
+          stake: number
+          total_odds: string
+          is_each_way: boolean
+          is_free_bet: boolean
+          status: 'Pending' | 'Won' | 'Lost' | 'Void'
+          potential_return: number | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          created_at?: string
+          bet_type: 'Single' | 'Accumulator'
+          stake: number
+          total_odds: string
+          is_each_way?: boolean
+          is_free_bet?: boolean
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+          potential_return?: number | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          created_at?: string
+          bet_type?: 'Single' | 'Accumulator'
+          stake?: number
+          total_odds?: string
+          is_each_way?: boolean
+          is_free_bet?: boolean
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+          potential_return?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      bet_selections: {
+        Row: {
+          id: string
+          bet_id: string
+          event: string
+          horse: string
+          odds: string
+          is_win: boolean
+          status: 'Pending' | 'Won' | 'Lost' | 'Void'
+        }
+        Insert: {
+          id?: string
+          bet_id: string
+          event: string
+          horse: string
+          odds: string
+          is_win?: boolean
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+        }
+        Update: {
+          id?: string
+          bet_id?: string
+          event?: string
+          horse?: string
+          odds?: string
+          is_win?: boolean
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bet_selections_bet_id_fkey"
+            columns: ["bet_id"]
+            isOneToOne: false
+            referencedRelation: "bets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
