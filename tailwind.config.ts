@@ -12,6 +12,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Satoshi', 'sans-serif'],
+        heading: ['Satoshi', 'sans-serif'],
+      },
       colors: {
         primary: {
           DEFAULT: "#02a64f",
