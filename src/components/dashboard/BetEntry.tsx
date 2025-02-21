@@ -205,6 +205,7 @@ export const BetEntry = () => {
                           id="odds-format"
                           checked={usesFractionalOdds}
                           onCheckedChange={setUsesFractionalOdds}
+                          className="data-[state=checked]:bg-bet-control"
                         />
                       </div>
                     </div>
@@ -224,6 +225,7 @@ export const BetEntry = () => {
                           id="free-bet"
                           checked={isFreeBet}
                           onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
+                          className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
                         />
                       </div>
                     </div>
@@ -260,6 +262,7 @@ export const BetEntry = () => {
                   id="isEachWay"
                   checked={isEachWay}
                   onCheckedChange={(checked) => setIsEachWay(checked as boolean)}
+                  className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
                 />
                 <label
                   htmlFor="isEachWay"
@@ -278,6 +281,7 @@ export const BetEntry = () => {
                     newSelections[0].isWin = checked as boolean;
                     setSelections(newSelections);
                   }}
+                  className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
                 />
                 <label
                   htmlFor="win"
