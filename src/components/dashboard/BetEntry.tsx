@@ -253,7 +253,7 @@ export const BetEntry = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -310,9 +310,6 @@ export const BetEntry = () => {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="flex items-center justify-end pt-2">
             <Button 
               type="submit"
               className="bg-green-600 hover:bg-green-700"
