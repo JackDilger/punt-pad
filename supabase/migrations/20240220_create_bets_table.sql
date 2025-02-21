@@ -40,6 +40,10 @@ create policy "Users can update their own bets"
     on bets for update
     using (auth.uid() = user_id);
 
+create policy "Users can delete their own bets"
+    on bets for delete
+    using (auth.uid() = user_id);
+
 create policy "Users can view their own bet selections"
     on bet_selections for select
     using (
@@ -62,6 +66,16 @@ create policy "Users can insert their own bet selections"
 
 create policy "Users can update their own bet selections"
     on bet_selections for update
+    using (
+        exists (
+            select 1 from bets
+            where bets.id = bet_selections.bet_id
+            and bets.user_id = auth.uid()
+        )
+    );
+
+create policy "Users can delete their own bet selections"
+    on bet_selections for delete
     using (
         exists (
             select 1 from bets
