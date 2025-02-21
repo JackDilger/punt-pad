@@ -1,4 +1,3 @@
-
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,50 +31,48 @@ export const Header = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to={session ? "/dashboard" : "/"} className="flex items-center">
             <span className="text-xl font-heading font-bold text-gray-900">Puntpad</span>
           </Link>
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Pricing
-            </Link>
-            <Link to="/features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Features
-            </Link>
-            <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              About
-            </Link>
-            <Link to="/blog" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-              Blog
-            </Link>
-          </nav>
-
-          {/* Auth Buttons */}
-          <div className="flex items-center space-x-4">
             {session ? (
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                className="hidden md:inline-flex"
-              >
-                Sign Out
-              </Button>
-            ) : (
               <>
-                <Link
-                  to="/auth"
-                  className="hidden md:inline-flex text-gray-600 hover:text-gray-900 font-medium transition-colors"
-                >
-                  Log In
+                <Link to="/dashboard" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Dashboard
                 </Link>
-                <Button asChild className="bg-primary hover:bg-primary-hover text-white">
-                  <Link to="/auth">Start tracking</Link>
+                <Link to="/my-bets" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  My Bets
+                </Link>
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                >
+                  Sign Out
                 </Button>
               </>
+            ) : (
+              <>
+                <Link to="/pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Pricing
+                </Link>
+                <Link to="/features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Features
+                </Link>
+                <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  About
+                </Link>
+                <Link to="/blog" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Blog
+                </Link>
+                <Link to="/auth">
+                  <Button variant="default">Sign In</Button>
+                </Link>
+              </>
             )}
-          </div>
+          </nav>
         </div>
       </div>
     </header>
