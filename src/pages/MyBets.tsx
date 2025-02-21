@@ -22,7 +22,18 @@ import { fractionalToDecimal } from "@/lib/utils/odds";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
-import { Pencil, Save } from "lucide-react";
+import { Pencil, Save, Trash2, Check, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface BetWithSelections {
   id: string;
@@ -224,6 +235,33 @@ export default function MyBets() {
   const handleCancel = () => {
     setEditingBetId(null);
     setEditingBet(null);
+  };
+
+  const handleDelete = async (betId: string) => {
+    try {
+      // Delete bet (cascade will handle selections)
+      const { error } = await supabase
+        .from("bets")
+        .delete()
+        .eq("id", betId);
+
+      if (error) throw error;
+
+      // Update local state
+      setBets(bets.filter(bet => bet.id !== betId));
+
+      toast({
+        title: "Success",
+        description: "Bet deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Error deleting bet:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete bet. Please try again.",
+      });
+    }
   };
 
   const sortedAndFilteredBets = bets
@@ -517,15 +555,43 @@ export default function MyBets() {
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          onClick={() => handleEdit(bet)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(bet)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Bet</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this bet? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-500 hover:bg-red-600"
+                                  onClick={() => handleDelete(bet.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
