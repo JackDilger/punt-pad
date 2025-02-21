@@ -21,6 +21,8 @@ import { formatDistance } from "date-fns";
 import { fractionalToDecimal } from "@/lib/utils/odds";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { Input } from "@/components/ui/input";
+import { Pencil, Save } from "lucide-react";
 
 interface BetWithSelections {
   id: string;
@@ -33,6 +35,7 @@ interface BetWithSelections {
   status: "Pending" | "Won" | "Lost" | "Void";
   potential_return: number | null;
   selections: {
+    id: string;
     event: string;
     horse: string;
     odds: string;
@@ -47,11 +50,9 @@ export default function MyBets() {
   const [sortBy, setSortBy] = useState<"date" | "status" | "profit">("date");
   const [filterBetType, setFilterBetType] = useState<"all" | "Single" | "Accumulator">("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void">("all");
+  const [editingBetId, setEditingBetId] = useState<string | null>(null);
+  const [editingBet, setEditingBet] = useState<BetWithSelections | null>(null);
   const { toast } = useToast();
-
-  if (!session) {
-    return <Navigate to="/auth" replace />;
-  }
 
   const fetchBets = async () => {
     try {
@@ -96,14 +97,133 @@ export default function MyBets() {
   }, []);
 
   const calculateProfitLoss = (bet: BetWithSelections) => {
-    if (bet.status === "Pending" || bet.status === "Void") return 0;
-    if (bet.status === "Lost") return -bet.stake;
+    console.log('Calculating profit/loss for bet:', bet);
+    if (bet.status === "Pending" || bet.status === "Void") {
+      return 0;
+    }
+    if (bet.status === "Lost") {
+      return -bet.stake;
+    }
     if (bet.status === "Won") {
-      const decimalOdds = fractionalToDecimal(bet.total_odds);
-      const winnings = bet.stake * decimalOdds;
-      return winnings - bet.stake;
+      // For winning bets:
+      // If odds are "2.0", this means for every £1 staked, you get £2 back
+      // So profit is (stake × odds) - stake
+      const decimalOdds = typeof bet.total_odds === 'string' ? 
+        fractionalToDecimal(bet.total_odds) : 
+        parseFloat(bet.total_odds);
+      console.log('Decimal odds:', decimalOdds);
+      const totalReturn = bet.stake * decimalOdds;
+      const profit = totalReturn - bet.stake;
+      console.log('Total return:', totalReturn, 'Profit:', profit);
+      return profit;
     }
     return 0;
+  };
+
+  const handleEdit = (bet: BetWithSelections) => {
+    console.log('Starting edit for bet:', bet);
+    setEditingBetId(bet.id);
+    setEditingBet({ ...bet }); // Create a new object to avoid reference issues
+  };
+
+  const handleSave = async () => {
+    if (!editingBet) return;
+
+    try {
+      console.log('Saving bet with status:', editingBet.status);
+
+      // First update the bet
+      const { data: updatedBet, error: betError } = await supabase
+        .from("bets")
+        .update({
+          status: editingBet.status,
+          stake: editingBet.stake,
+          total_odds: editingBet.total_odds,
+          is_each_way: editingBet.is_each_way,
+          is_free_bet: editingBet.is_free_bet,
+        })
+        .eq('id', editingBet.id)
+        .select('*')
+        .single();
+
+      if (betError) {
+        console.error('Error updating bet:', betError);
+        throw betError;
+      }
+
+      console.log('Successfully updated bet:', updatedBet);
+
+      // Then update all selections
+      const selectionPromises = editingBet.selections.map(async (selection) => {
+        const { data, error: selectionError } = await supabase
+          .from("bet_selections")
+          .update({
+            event: selection.event,
+            horse: selection.horse,
+            odds: selection.odds,
+            status: editingBet.status, // Use the bet's status
+          })
+          .eq('id', selection.id)
+          .select('*')
+          .single();
+
+        if (selectionError) {
+          console.error('Error updating selection:', selectionError);
+          throw selectionError;
+        }
+
+        return data;
+      });
+
+      const updatedSelections = await Promise.all(selectionPromises);
+      console.log('Successfully updated selections:', updatedSelections);
+
+      // Update local state
+      setBets(prevBets => 
+        prevBets.map(bet => 
+          bet.id === editingBet.id 
+            ? { ...updatedBet, selections: updatedSelections }
+            : bet
+        )
+      );
+
+      setEditingBetId(null);
+      setEditingBet(null);
+
+      toast({
+        title: "Success",
+        description: "Bet updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error updating bet:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update bet. Please try again.",
+      });
+    }
+  };
+
+  const handleStatusChange = (value: "Pending" | "Won" | "Lost" | "Void", index: number) => {
+    if (!editingBet) return;
+
+    console.log('Changing status to:', value);
+    
+    const newSelections = editingBet.selections.map((selection, i) => ({
+      ...selection,
+      status: i === index ? value : selection.status,
+    }));
+
+    setEditingBet({
+      ...editingBet,
+      status: value,
+      selections: newSelections,
+    });
+  };
+
+  const handleCancel = () => {
+    setEditingBetId(null);
+    setEditingBet(null);
   };
 
   const sortedAndFilteredBets = bets
@@ -186,66 +306,231 @@ export default function MyBets() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Profit/Loss</TableHead>
                 <TableHead className="text-right">Date Added</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedAndFilteredBets.map((bet) => (
-                <TableRow key={bet.id}>
-                  <TableCell>
-                    {bet.selections.map((s) => s.event).join(", ")}
-                  </TableCell>
-                  <TableCell>
-                    {bet.selections.map((s) => s.horse).join(", ")}
-                  </TableCell>
-                  <TableCell>{bet.total_odds}</TableCell>
-                  <TableCell>
-                    £{bet.stake.toFixed(2)}
-                    {bet.is_free_bet && (
-                      <span className="ml-2 text-xs text-muted-foreground">(Free)</span>
-                    )}
-                    {bet.is_each_way && (
-                      <span className="ml-2 text-xs text-muted-foreground">(E/W)</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{bet.bet_type}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          bet.status === "Won"
-                            ? "bg-green-50 text-green-700"
-                            : bet.status === "Lost"
-                            ? "bg-red-50 text-red-700"
-                            : bet.status === "Void"
-                            ? "bg-gray-50 text-gray-700"
-                            : "bg-yellow-50 text-yellow-700"
-                        }`}
-                      >
-                        {bet.status}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={
-                        calculateProfitLoss(bet) > 0
-                          ? "text-green-600"
-                          : calculateProfitLoss(bet) < 0
-                          ? "text-red-600"
-                          : ""
-                      }
-                    >
-                      {calculateProfitLoss(bet) > 0 && "+"}£
-                      {Math.abs(calculateProfitLoss(bet)).toFixed(2)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatDistance(new Date(bet.created_at), new Date(), {
-                      addSuffix: true,
-                    })}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {sortedAndFilteredBets.map((bet) => {
+                const isEditing = editingBetId === bet.id;
+                const editedBet = isEditing ? editingBet : bet;
+                if (!editedBet) return null;
+
+                return (
+                  <TableRow key={bet.id}>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {editedBet.selections.map((selection, index) => (
+                            <Input
+                              key={selection.id}
+                              value={selection.event}
+                              onChange={(e) => {
+                                const newSelections = [...editedBet.selections];
+                                newSelections[index] = {
+                                  ...newSelections[index],
+                                  event: e.target.value,
+                                };
+                                setEditingBet({
+                                  ...editedBet,
+                                  selections: newSelections,
+                                });
+                              }}
+                              className="w-full"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        editedBet.selections.map((s) => s.event).join(", ")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {editedBet.selections.map((selection, index) => (
+                            <Input
+                              key={selection.id}
+                              value={selection.horse}
+                              onChange={(e) => {
+                                const newSelections = [...editedBet.selections];
+                                newSelections[index] = {
+                                  ...newSelections[index],
+                                  horse: e.target.value,
+                                };
+                                setEditingBet({
+                                  ...editedBet,
+                                  selections: newSelections,
+                                });
+                              }}
+                              className="w-full"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        editedBet.selections.map((s) => s.horse).join(", ")
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {editedBet.selections.map((selection, index) => (
+                            <Input
+                              key={selection.id}
+                              value={selection.odds}
+                              onChange={(e) => {
+                                const newSelections = [...editedBet.selections];
+                                newSelections[index] = {
+                                  ...newSelections[index],
+                                  odds: e.target.value,
+                                };
+                                setEditingBet({
+                                  ...editedBet,
+                                  selections: newSelections,
+                                });
+                              }}
+                              className="w-full"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        editedBet.total_odds
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={editedBet.stake}
+                          onChange={(e) =>
+                            setEditingBet({
+                              ...editedBet,
+                              stake: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-24"
+                        />
+                      ) : (
+                        <>
+                          £{editedBet.stake.toFixed(2)}
+                          {editedBet.is_free_bet && (
+                            <span className="ml-2 text-xs text-muted-foreground">(Free)</span>
+                          )}
+                          {editedBet.is_each_way && (
+                            <span className="ml-2 text-xs text-muted-foreground">(E/W)</span>
+                          )}
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell>{editedBet.bet_type}</TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          {editedBet.selections.map((selection, index) => (
+                            <Select
+                              key={selection.id}
+                              value={selection.status}
+                              onValueChange={(value: "Pending" | "Won" | "Lost" | "Void") => 
+                                handleStatusChange(value, index)
+                              }
+                            >
+                              <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Won">Won</SelectItem>
+                                <SelectItem value="Lost">Lost</SelectItem>
+                                <SelectItem value="Void">Void</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              editedBet.status === "Won"
+                                ? "bg-green-50 text-green-700"
+                                : editedBet.status === "Lost"
+                                ? "bg-red-50 text-red-700"
+                                : editedBet.status === "Void"
+                                ? "bg-gray-50 text-gray-700"
+                                : "bg-yellow-50 text-yellow-700"
+                            }`}
+                          >
+                            {editedBet.status}
+                          </span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!editingBetId || editingBetId !== bet.id ? (
+                        <span
+                          className={
+                            bet.status === "Won"
+                              ? "text-green-600"
+                              : bet.status === "Lost"
+                              ? "text-red-600"
+                              : ""
+                          }
+                        >
+                          {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : ""}£
+                          {Math.abs(calculateProfitLoss(bet)).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span
+                          className={
+                            editingBet?.status === "Won"
+                              ? "text-green-600"
+                              : editingBet?.status === "Lost"
+                              ? "text-red-600"
+                              : ""
+                          }
+                        >
+                          {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : ""}£
+                          {Math.abs(calculateProfitLoss(editingBet)).toFixed(2)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatDistance(new Date(editedBet.created_at), new Date(), {
+                        addSuffix: true,
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="flex space-x-2">
+                          <Button
+                            onClick={handleSave}
+                            size="sm"
+                            className="h-8 px-2"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span className="sr-only">Save</span>
+                          </Button>
+                          <Button
+                            onClick={handleCancel}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => handleEdit(bet)}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
