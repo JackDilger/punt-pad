@@ -7,19 +7,21 @@ import { Pencil, Trash2, Check, X } from "lucide-react";
 
 interface BetWithSelections {
   id: string;
-  status: "Pending" | "Won" | "Lost" | "Void";
+  status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
   stake: number;
   total_odds: string;
   created_at: string;
   bet_type: string;
   is_each_way: boolean;
+  place_terms: number;
   is_free_bet: boolean;
   selections: {
     id: string;
     event: string;
     horse: string;
     odds: string;
-    status: "Pending" | "Won" | "Lost" | "Void";
+    status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
+    is_win: boolean;
   }[];
 }
 
@@ -61,17 +63,52 @@ export const ActivityOverview = () => {
   }, []);
 
   const calculateStats = () => {
-    const totalStake = bets.reduce((sum, bet) => sum + bet.stake, 0);
+    // Calculate total stake including both parts of each way bets
+    const totalStake = bets.reduce((sum, bet) => {
+      const effectiveStake = bet.is_each_way ? bet.stake * 2 : bet.stake;
+      return sum + (bet.is_free_bet ? 0 : effectiveStake);
+    }, 0);
+
     const completedBets = bets.filter(bet => bet.status !== "Pending" && bet.status !== "Void");
-    const wonBets = bets.filter(bet => bet.status === "Won");
+    const wonBets = bets.filter(bet => bet.status === "Won" || bet.status === "Placed");
     
     let totalProfit = 0;
     bets.forEach(bet => {
-      if (bet.status === "Won") {
+      if (bet.status === "Won" || bet.status === "Placed") {
         const decimalOdds = fractionalToDecimal(bet.total_odds);
-        totalProfit += (bet.stake * decimalOdds) - bet.stake;
-      } else if (bet.status === "Lost") {
-        totalProfit -= bet.stake;
+        
+        if (bet.is_free_bet) {
+          // For free bets, only count winnings (not stake return)
+          if (bet.status === "Won") {
+            totalProfit += bet.stake * (decimalOdds - 1);
+          } else if (bet.status === "Placed" && bet.is_each_way) {
+            const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1;
+            totalProfit += bet.stake * (placeOdds - 1);
+          }
+        } else {
+          let returns = 0;
+          
+          if (bet.status === "Won") {
+            // Full win - calculate both win and place parts
+            returns = bet.stake * decimalOdds; // Includes stake return
+            if (bet.is_each_way) {
+              const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1;
+              returns += bet.stake * placeOdds; // Includes stake return
+            }
+          } else if (bet.status === "Placed" && bet.is_each_way) {
+            // Only place part won
+            const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1;
+            returns = bet.stake * placeOdds; // Includes stake return
+          }
+          
+          // Subtract total stake (both win and place parts for each way)
+          const effectiveStake = bet.is_each_way ? bet.stake * 2 : bet.stake;
+          totalProfit += returns - effectiveStake;
+        }
+      } else if (bet.status === "Lost" && !bet.is_free_bet) {
+        // Subtract total stake for lost bets (both parts for each way)
+        const effectiveStake = bet.is_each_way ? bet.stake * 2 : bet.stake;
+        totalProfit -= effectiveStake;
       }
     });
 
@@ -172,6 +209,8 @@ export const ActivityOverview = () => {
                             ? "bg-green-100 text-green-700"
                             : bet.status === "Lost"
                             ? "bg-red-100 text-red-700"
+                            : bet.status === "Placed"
+                            ? "bg-blue-100 text-blue-700"
                             : bet.status === "Void"
                             ? "bg-gray-100 text-gray-700"
                             : "bg-yellow-100 text-yellow-700"

@@ -43,15 +43,16 @@ interface BetWithSelections {
   total_odds: string;
   is_each_way: boolean;
   is_free_bet: boolean;
-  status: "Pending" | "Won" | "Lost" | "Void";
+  status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
   potential_return: number | null;
+  place_terms: number;
   selections: {
     id: string;
     event: string;
     horse: string;
     odds: string;
     is_win: boolean;
-    status: "Pending" | "Won" | "Lost" | "Void";
+    status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
   }[];
 }
 
@@ -60,7 +61,7 @@ export default function MyBets() {
   const [bets, setBets] = useState<BetWithSelections[]>([]);
   const [sortBy, setSortBy] = useState<"date" | "status" | "profit">("date");
   const [filterBetType, setFilterBetType] = useState<"all" | "Single" | "Accumulator">("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void" | "Placed">("all");
   const [editingBetId, setEditingBetId] = useState<string | null>(null);
   const [editingBet, setEditingBet] = useState<BetWithSelections | null>(null);
   const { toast } = useToast();
@@ -112,23 +113,48 @@ export default function MyBets() {
     if (bet.status === "Pending" || bet.status === "Void") {
       return 0;
     }
+
+    // For each way bets, we need to consider both win and place parts
+    const effectiveStake = bet.is_each_way ? bet.stake * 2 : bet.stake;
+
     if (bet.status === "Lost") {
-      return -bet.stake;
+      // For lost bets, we lose the total stake (both win and place parts for each way)
+      return bet.is_free_bet ? 0 : -effectiveStake;
     }
+
+    const decimalOdds = typeof bet.total_odds === 'string' ? 
+      fractionalToDecimal(bet.total_odds) : 
+      parseFloat(bet.total_odds);
+    console.log('Decimal odds:', decimalOdds);
+
+    if (bet.is_free_bet) {
+      // For free bets, only count winnings
+      const winnings = bet.stake * (decimalOdds - 1); // Subtract 1 to get just the profit
+      console.log('Free bet winnings:', winnings);
+      return winnings;
+    }
+
+    let totalReturn = 0;
+
+    // Calculate returns based on status
     if (bet.status === "Won") {
-      // For winning bets:
-      // If odds are "2.0", this means for every £1 staked, you get £2 back
-      // So profit is (stake × odds) - stake
-      const decimalOdds = typeof bet.total_odds === 'string' ? 
-        fractionalToDecimal(bet.total_odds) : 
-        parseFloat(bet.total_odds);
-      console.log('Decimal odds:', decimalOdds);
-      const totalReturn = bet.stake * decimalOdds;
-      const profit = totalReturn - bet.stake;
-      console.log('Total return:', totalReturn, 'Profit:', profit);
-      return profit;
+      // Full win - both win and place parts if each way
+      totalReturn = bet.stake * decimalOdds; // This includes stake return
+      if (bet.is_each_way) {
+        const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1; // Convert to place odds properly
+        totalReturn += bet.stake * placeOdds; // This includes stake return
+      }
+    } else if (bet.status === "Placed") {
+      // Only the place part won
+      if (bet.is_each_way) {
+        const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1; // Convert to place odds properly
+        totalReturn = bet.stake * placeOdds; // This includes stake return
+      }
     }
-    return 0;
+
+    const profit = totalReturn - effectiveStake;
+    console.log('Total return:', totalReturn, 'Effective stake:', effectiveStake, 'Profit:', profit);
+    return profit;
   };
 
   const handleEdit = (bet: BetWithSelections) => {
@@ -215,7 +241,7 @@ export default function MyBets() {
     }
   };
 
-  const handleStatusChange = (value: "Pending" | "Won" | "Lost" | "Void", index: number) => {
+  const handleStatusChange = (value: "Pending" | "Won" | "Lost" | "Void" | "Placed", index: number) => {
     if (!editingBet) return;
 
     console.log('Changing status to:', value);
@@ -326,6 +352,7 @@ export default function MyBets() {
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Won">Won</SelectItem>
                 <SelectItem value="Lost">Lost</SelectItem>
+                <SelectItem value="Placed">Placed</SelectItem>
                 <SelectItem value="Void">Void</SelectItem>
               </SelectContent>
             </Select>
@@ -353,77 +380,119 @@ export default function MyBets() {
                 const editedBet = isEditing ? editingBet : bet;
                 if (!editedBet) return null;
 
+                // Filter to only show win selections for display
+                const displaySelections = editedBet.selections.filter(s => s.is_win);
+
                 return (
                   <TableRow key={bet.id}>
                     <TableCell>
                       {isEditing ? (
                         <div className="space-y-2">
-                          {editedBet.selections.map((selection, index) => (
+                          {displaySelections.map((selection, index) => (
                             <Input
                               key={selection.id}
                               value={selection.event}
                               onChange={(e) => {
                                 const newSelections = [...editedBet.selections];
-                                newSelections[index] = {
-                                  ...newSelections[index],
-                                  event: e.target.value,
-                                };
-                                setEditingBet({
-                                  ...editedBet,
-                                  selections: newSelections,
-                                });
+                                const winIndex = newSelections.findIndex(s => s.id === selection.id);
+                                if (winIndex !== -1) {
+                                  newSelections[winIndex] = {
+                                    ...newSelections[winIndex],
+                                    event: e.target.value,
+                                  };
+                                  // If it's each way, update the place selection too
+                                  if (editedBet.is_each_way) {
+                                    const placeIndex = newSelections.findIndex(s => !s.is_win && s.horse === selection.horse);
+                                    if (placeIndex !== -1) {
+                                      newSelections[placeIndex] = {
+                                        ...newSelections[placeIndex],
+                                        event: e.target.value,
+                                      };
+                                    }
+                                  }
+                                  setEditingBet({
+                                    ...editedBet,
+                                    selections: newSelections,
+                                  });
+                                }
                               }}
                               className="w-full"
                             />
                           ))}
                         </div>
                       ) : (
-                        editedBet.selections.map((s) => s.event).join(", ")
+                        displaySelections.map((s) => s.event).join(", ")
                       )}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <div className="space-y-2">
-                          {editedBet.selections.map((selection, index) => (
+                          {displaySelections.map((selection, index) => (
                             <Input
                               key={selection.id}
                               value={selection.horse}
                               onChange={(e) => {
                                 const newSelections = [...editedBet.selections];
-                                newSelections[index] = {
-                                  ...newSelections[index],
-                                  horse: e.target.value,
-                                };
-                                setEditingBet({
-                                  ...editedBet,
-                                  selections: newSelections,
-                                });
+                                const winIndex = newSelections.findIndex(s => s.id === selection.id);
+                                if (winIndex !== -1) {
+                                  newSelections[winIndex] = {
+                                    ...newSelections[winIndex],
+                                    horse: e.target.value,
+                                  };
+                                  // If it's each way, update the place selection too
+                                  if (editedBet.is_each_way) {
+                                    const placeIndex = newSelections.findIndex(s => !s.is_win && s.event === selection.event);
+                                    if (placeIndex !== -1) {
+                                      newSelections[placeIndex] = {
+                                        ...newSelections[placeIndex],
+                                        horse: e.target.value,
+                                      };
+                                    }
+                                  }
+                                  setEditingBet({
+                                    ...editedBet,
+                                    selections: newSelections,
+                                  });
+                                }
                               }}
                               className="w-full"
                             />
                           ))}
                         </div>
                       ) : (
-                        editedBet.selections.map((s) => s.horse).join(", ")
+                        displaySelections.map((s) => s.horse).join(", ")
                       )}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <div className="space-y-2">
-                          {editedBet.selections.map((selection, index) => (
+                          {displaySelections.map((selection, index) => (
                             <Input
                               key={selection.id}
                               value={selection.odds}
                               onChange={(e) => {
                                 const newSelections = [...editedBet.selections];
-                                newSelections[index] = {
-                                  ...newSelections[index],
-                                  odds: e.target.value,
-                                };
-                                setEditingBet({
-                                  ...editedBet,
-                                  selections: newSelections,
-                                });
+                                const winIndex = newSelections.findIndex(s => s.id === selection.id);
+                                if (winIndex !== -1) {
+                                  newSelections[winIndex] = {
+                                    ...newSelections[winIndex],
+                                    odds: e.target.value,
+                                  };
+                                  // If it's each way, update the place selection too
+                                  if (editedBet.is_each_way) {
+                                    const placeIndex = newSelections.findIndex(s => !s.is_win && s.event === selection.event);
+                                    if (placeIndex !== -1) {
+                                      newSelections[placeIndex] = {
+                                        ...newSelections[placeIndex],
+                                        odds: e.target.value,
+                                      };
+                                    }
+                                  }
+                                  setEditingBet({
+                                    ...editedBet,
+                                    selections: newSelections,
+                                  });
+                                }
                               }}
                               className="w-full"
                             />
@@ -462,11 +531,11 @@ export default function MyBets() {
                     <TableCell>
                       {isEditing ? (
                         <div className="space-y-2">
-                          {editedBet.selections.map((selection, index) => (
+                          {displaySelections.map((selection, index) => (
                             <Select
                               key={selection.id}
                               value={selection.status}
-                              onValueChange={(value: "Pending" | "Won" | "Lost" | "Void") => 
+                              onValueChange={(value: "Pending" | "Won" | "Lost" | "Void" | "Placed") => 
                                 handleStatusChange(value, index)
                               }
                             >
@@ -477,6 +546,7 @@ export default function MyBets() {
                                 <SelectItem value="Pending">Pending</SelectItem>
                                 <SelectItem value="Won">Won</SelectItem>
                                 <SelectItem value="Lost">Lost</SelectItem>
+                                <SelectItem value="Placed">Placed</SelectItem>
                                 <SelectItem value="Void">Void</SelectItem>
                               </SelectContent>
                             </Select>
@@ -492,6 +562,8 @@ export default function MyBets() {
                                 ? "bg-red-50 text-red-700"
                                 : editedBet.status === "Void"
                                 ? "bg-gray-50 text-gray-700"
+                                : editedBet.status === "Placed"
+                                ? "bg-blue-50 text-blue-700"
                                 : "bg-yellow-50 text-yellow-700"
                             }`}
                           >
@@ -508,10 +580,12 @@ export default function MyBets() {
                               ? "text-green-600"
                               : bet.status === "Lost"
                               ? "text-red-600"
+                              : bet.status === "Placed"
+                              ? "text-blue-600"
                               : ""
                           }
                         >
-                          {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : ""}£
+                          {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : bet.status === "Placed" ? "+" : ""}£
                           {Math.abs(calculateProfitLoss(bet)).toFixed(2)}
                         </span>
                       ) : (
@@ -521,10 +595,12 @@ export default function MyBets() {
                               ? "text-green-600"
                               : editingBet?.status === "Lost"
                               ? "text-red-600"
+                              : editingBet?.status === "Placed"
+                              ? "text-blue-600"
                               : ""
                           }
                         >
-                          {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : ""}£
+                          {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : editingBet?.status === "Placed" ? "+" : ""}£
                           {Math.abs(calculateProfitLoss(editingBet)).toFixed(2)}
                         </span>
                       )}
