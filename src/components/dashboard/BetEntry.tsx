@@ -10,6 +10,7 @@ import { fractionalToDecimal, decimalToFractional, isFractionalOdds } from "@/li
 import { Plus, X } from "lucide-react";
 import { createBet } from "@/lib/db/bets";
 import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Selection {
   event: string;
@@ -22,6 +23,7 @@ export const BetEntry = () => {
   const [betType, setBetType] = useState<"Single" | "Accumulator">("Single");
   const [selections, setSelections] = useState<Selection[]>([{ event: "", horse: "", odds: "", isWin: true }]);
   const [isEachWay, setIsEachWay] = useState(false);
+  const [placeTerms, setPlaceTerms] = useState<0.20 | 0.25>(0.25); // Default to 1/4 odds
   const [isFreeBet, setIsFreeBet] = useState(false);
   const [usesFractionalOdds, setUsesFractionalOdds] = useState(true);
   const [stake, setStake] = useState<string>("");
@@ -60,13 +62,81 @@ export const BetEntry = () => {
     return usesFractionalOdds ? decimalToFractional(total) : total.toFixed(2);
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate form
+    if (!stake || parseFloat(stake) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid stake amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selections.some(s => !s.event || !s.horse || !s.odds)) {
+      toast({
+        title: "Error",
+        description: "Please fill in all selection details",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const totalOdds = calculateTotalOdds();
+      console.log('Calculated total odds:', totalOdds);
+
+      // Create bet object using snake_case for database fields
+      const bet = {
+        bet_type: betType,
+        stake: parseFloat(stake),
+        total_odds: totalOdds,
+        is_each_way: isEachWay,
+        place_terms: isEachWay ? placeTerms : 0.25,
+        is_free_bet: isFreeBet,
+        selections: selections.map(s => ({
+          event: s.event,
+          horse: s.horse,
+          odds: s.odds,
+          is_win: true
+        }))
+      };
+
+      console.log('Submitting bet:', bet);
+      const result = await createBet(bet);
+      console.log('Bet created:', result);
+
+      // Reset form
+      setBetType("Single");
+      setSelections([{ event: "", horse: "", odds: "", isWin: true }]);
+      setIsEachWay(false);
+      setPlaceTerms(0.25);
+      setIsFreeBet(false);
+      setStake("");
+
+      toast({
+        title: "Success",
+        description: "Bet created successfully",
+      });
+    } catch (error) {
+      console.error('Error creating bet:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create bet",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card>
-      <CardHeader className="pb-4">
-        <CardTitle>Enter Horse Racing Bet</CardTitle>
+      <CardHeader>
+        <CardTitle>Place a Bet</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center gap-4">
             <Label className="w-20">Bet Type</Label>
             <RadioGroup
@@ -183,85 +253,69 @@ export const BetEntry = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-4">
-              {selections.map((selection, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`win-${index}`}
-                    checked={selection.isWin}
-                    onCheckedChange={(checked) => {
-                      const newSelections = [...selections];
-                      newSelections[index].isWin = checked as boolean;
-                      setSelections(newSelections);
-                    }}
-                  />
-                  <Label htmlFor={`win-${index}`}>Win</Label>
-                </div>
-              ))}
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="each-way"
+                  id="isEachWay"
                   checked={isEachWay}
                   onCheckedChange={(checked) => setIsEachWay(checked as boolean)}
                 />
-                <Label htmlFor="each-way">Each Way</Label>
+                <label
+                  htmlFor="isEachWay"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Each Way
+                </label>
               </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="win"
+                  checked={selections[0].isWin}
+                  onCheckedChange={(checked) => {
+                    const newSelections = [...selections];
+                    newSelections[0].isWin = checked as boolean;
+                    setSelections(newSelections);
+                  }}
+                />
+                <label
+                  htmlFor="win"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Win
+                </label>
+              </div>
+
+              {isEachWay && (
+                <div className="flex items-center space-x-2">
+                  <label
+                    htmlFor="placeTerms"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Place Terms:
+                  </label>
+                  <Select
+                    value={placeTerms.toString()}
+                    onValueChange={(value) => setPlaceTerms(parseFloat(value) as 0.20 | 0.25)}
+                  >
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue placeholder="Select terms" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0.25">1/4 odds</SelectItem>
+                      <SelectItem value="0.20">1/5 odds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+          </div>
 
+          <div className="flex items-center justify-end pt-2">
             <Button 
-              type="button"
-              onClick={async () => {
-                try {
-                  // Validate form
-                  if (!stake || parseFloat(stake) <= 0) {
-                    toast({
-                      variant: "destructive",
-                      title: "Error",
-                      description: "Please enter a valid stake amount",
-                    });
-                    return;
-                  }
-
-                  if (selections.some(s => !s.event || !s.horse || !s.odds)) {
-                    toast({
-                      variant: "destructive",
-                      title: "Error",
-                      description: "Please fill in all selection details",
-                    });
-                    return;
-                  }
-
-                  // Create bet
-                  await createBet({
-                    betType,
-                    stake: parseFloat(stake),
-                    totalOdds: calculateTotalOdds(),
-                    isEachWay,
-                    isFreeBet,
-                    selections
-                  });
-
-                  // Reset form
-                  setSelections([{ event: "", horse: "", odds: "", isWin: true }]);
-                  setStake("");
-                  setBetType("Single");
-                  setIsEachWay(false);
-                  setIsFreeBet(false);
-
-                  toast({
-                    title: "Success",
-                    description: "Bet has been added successfully",
-                  });
-                } catch (error) {
-                  console.error('Error saving bet:', error);
-                  toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Failed to save bet. Please try again.",
-                  });
-                }
-              }}
+              type="submit"
+              className="bg-green-600 hover:bg-green-700"
             >
               Add Bet
             </Button>

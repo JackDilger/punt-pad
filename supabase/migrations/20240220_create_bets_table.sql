@@ -7,10 +7,13 @@ create table public.bets (
     stake decimal(10,2) not null,
     total_odds text not null,
     is_each_way boolean default false,
+    placeterms decimal(3,2) default 0.25, -- Default to 1/4 odds, can be 0.20 for 1/5
     is_free_bet boolean default false,
-    status text default 'Pending' check (status in ('Pending', 'Won', 'Lost', 'Void')),
+    status bet_status default 'Pending' check (status in ('Pending', 'Won', 'Lost', 'Void', 'Placed')),
     potential_return decimal(10,2)
 );
+
+CREATE TYPE bet_status AS ENUM ('Pending', 'Won', 'Lost', 'Void', 'Placed');
 
 -- Create bet selections table for individual selections within a bet
 create table public.bet_selections (
