@@ -13,14 +13,12 @@ const Dashboard = () => {
 
   return (
     <AuthLayout>
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div>
-            <BetEntry />
-          </div>
-          <div>
-            <ActivityOverview />
-          </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          <BetEntry />
+        </div>
+        <div>
+          <ActivityOverview />
         </div>
       </div>
     </AuthLayout>
