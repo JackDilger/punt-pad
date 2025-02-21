@@ -25,6 +25,10 @@ export default {
           DEFAULT: "#fdee21",
           hover: "#e3d61e",
         },
+        'bet-control': {
+          DEFAULT: "#02a64f",
+          hover: "#029447",
+        },
         error: "#E74C3C",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
