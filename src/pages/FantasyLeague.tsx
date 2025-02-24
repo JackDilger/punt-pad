@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
+import { format, formatDistance } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,26 +14,41 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Database } from '@/integrations/supabase/types';
 
-interface Horse {
+interface FestivalDay {
   id: string;
-  race_id: string;
-  name: string | null;
-  fixed_odds: number | null;
-  points_if_wins: number | null;
+  day_number: number;
+  date: string;
+  is_published: boolean;
+  cutoff_time: string | null;
   created_at: string;
   updated_at: string;
+  races: Race[];
+  selections_submitted: boolean;
+  name: string;
 }
 
 interface Race {
   id: string;
   name: string;
-  time: string;
+  race_time: string;
   day_id: string;
   race_order: number;
   status: 'upcoming' | 'in_progress' | 'finished';
+  created_at: string;
+  updated_at: string;
   horses: Horse[];
   selected_horse_id?: string;
+}
+
+interface Horse {
+  id: string;
+  race_id: string;
+  name: string;
+  fixed_odds: number;
+  points_if_wins: number;
+  points_if_places: number;
   created_at: string;
   updated_at: string;
 }
@@ -46,19 +61,6 @@ interface Selection {
   day_id: string;
   created_at: string;
   submitted_at: string | null;
-}
-
-interface FestivalDay {
-  id: string;
-  day_number: number;
-  name: string;
-  date: string;
-  is_published: boolean;
-  cutoff_time: string;
-  races: Race[];
-  selections_submitted: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -117,84 +119,63 @@ export default function FantasyLeague() {
       const { data: daysData, error: daysError } = await supabase
         .from("fantasy_festival_days")
         .select("*")
-        .order("date");
+        .order("day_number");
 
       if (daysError) {
         console.error("Error fetching days:", daysError);
         throw daysError;
       }
-      console.log("Days data:", daysData);
+
+      const { data: racesData, error: racesError } = await supabase
+        .from('fantasy_races')
+        .select(`
+          *,
+          horses:fantasy_horses(*)
+        `)
+        .order('race_order');
+
+      if (racesError) {
+        console.error("Error fetching races:", racesError);
+        throw racesError;
+      }
 
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {
         console.error("No user ID found");
         return;
       }
-      console.log("User ID:", userId);
 
-      const days: FestivalDay[] = [];
-      
-      for (const day of daysData) {
-        console.log("Processing day:", day);
-        // Get races for this day
-        const { data: racesData, error: racesError } = await supabase
-          .from("fantasy_races")
-          .select(`
-            *,
-            horses:fantasy_horses(*)
-          `)
-          .eq("day_id", day.id)
-          .order("race_order");
+      const { data: selectionsData, error: selectionsError } = await supabase
+        .from('fantasy_selections')
+        .select('*')
+        .eq('user_id', userId)
+        .returns<Selection[]>();
 
-        if (racesError) {
-          console.error("Error fetching races:", racesError);
-          throw racesError;
-        }
-        console.log("Races data:", racesData);
-
-        // Get user's selections for this day
-        const { data: selectionsData, error: selectionsError } = await supabase
-          .from("fantasy_selections")
-          .select("*")
-          .eq("day_id", day.id)
-          .eq("user_id", userId);
-
-        if (selectionsError) {
-          console.error("Error fetching selections:", selectionsError);
-          throw selectionsError;
-        }
-        console.log("Selections data:", selectionsData);
-
-        const selections = selectionsData as Selection[];
-        const hasSubmittedSelections = selections.some(s => s.submitted_at !== null);
-
-        const races = racesData.map(race => ({
-          ...race,
-          time: race.race_time,
-          race_order: race.race_order || 0,
-          status: race.status || 'upcoming',
-          horses: race.horses || [],
-          selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id || ""
-        })) as Race[];
-
-        // Find the first race of the day to set cutoff time
-        const firstRace = [...races].sort((a, b) => 
-          new Date(a.time).getTime() - new Date(b.time).getTime()
-        )[0];
-
-        // Set cutoff time to 1 hour before first race
-        const cutoffTime = firstRace 
-          ? new Date(new Date(firstRace.time).getTime() - 60 * 60 * 1000).toISOString()
-          : day.cutoff_time;
-
-        days.push({
-          ...day,
-          name: `Day ${day.day_number}`,
-          cutoff_time: cutoffTime,
-          races,
-          selections_submitted: hasSubmittedSelections
-        });
+      if (selectionsError) {
+        console.error("Error fetching selections:", selectionsError);
+        throw selectionsError;
       }
+
+      const selections = selectionsData;
+      const hasSubmittedSelections = selections.some(s => s.submitted_at !== null);
+
+      // Map races to their respective days
+      const days = daysData.map(day => {
+        const dayRaces = racesData
+          .filter(race => race.day_id === day.id)
+          .map(race => ({
+            ...race,
+            horses: race.horses || [],
+            selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id
+          }));
+
+        return {
+          ...day,
+          races: dayRaces,
+          selections_submitted: hasSubmittedSelections,
+          name: `Day ${day.day_number}` // Add computed name property
+        };
+      });
 
       console.log("Final processed days:", days);
       setFestivalDays(days);
@@ -234,7 +215,7 @@ export default function FantasyLeague() {
         // Update existing selection
         const { error: updateError } = await supabase
           .from('fantasy_selections')
-          .update({ horse_id: horseId })
+          .update({ horse_id: horseId } satisfies Database['public']['Tables']['fantasy_selections']['Update'])
           .eq('id', existingSelection.id);
 
         if (updateError) throw updateError;
@@ -247,28 +228,40 @@ export default function FantasyLeague() {
             horse_id: horseId,
             race_id: raceId,
             day_id: currentDay.id
-          });
+          } satisfies Database['public']['Tables']['fantasy_selections']['Insert']);
 
         if (insertError) throw insertError;
       }
 
-      // Update local state
+      // Get race details
+      const { data: raceData, error: raceError } = await supabase
+        .from('fantasy_races')
+        .select(`
+          *,
+          horses:fantasy_horses(*)
+        `)
+        .eq('id', raceId)
+        .single();
+
+      if (raceError) {
+        console.error("Error fetching race:", raceError);
+        throw raceError;
+      }
+
+      // Add horses to race
+      const race = {
+        ...raceData,
+        horses: raceData.horses || [],
+        selected_horse_id: horseId
+      } as Race;
+
+      // Update festival days state
       setFestivalDays(days => days.map(day => {
-        if (day.id === currentDay.id) {
-          return {
-            ...day,
-            races: day.races.map(race => {
-              if (race.id === raceId) {
-                return {
-                  ...race,
-                  selected_horse_id: horseId
-                };
-              }
-              return race;
-            })
-          };
-        }
-        return day;
+        if (!day.races.some(r => r.id === raceId)) return day;
+        return {
+          ...day,
+          races: day.races.map(r => r.id === raceId ? race : r)
+        };
       }));
     } catch (error) {
       console.error('Error updating selection:', error);
@@ -294,7 +287,7 @@ export default function FantasyLeague() {
       // Update all selections for the day with submitted_at
       const { error } = await supabase
         .from("fantasy_selections")
-        .update({ submitted_at: new Date().toISOString() })
+        .update({ submitted_at: new Date().toISOString() } satisfies Database['public']['Tables']['fantasy_selections']['Update'])
         .eq("day_id", currentDay.id)
         .eq("user_id", userId);
 
@@ -320,7 +313,7 @@ export default function FantasyLeague() {
     setEditingRaceId(race.id);
     setEditingValues({
       name: race.name,
-      time: format(new Date(race.time), 'HH:mm'),
+      time: format(new Date(race.race_time), 'HH:mm'),
       horses: [...race.horses]
     });
   };
@@ -359,7 +352,7 @@ export default function FantasyLeague() {
       if (!currentDay || !race) return;
 
       // Parse the time input (HH:mm) and combine with the existing date
-      const currentDate = new Date(race.time);
+      const currentDate = new Date(race.race_time);
       const [hours, minutes] = editingValues.time.split(':');
       currentDate.setHours(parseInt(hours, 10));
       currentDate.setMinutes(parseInt(minutes, 10));
@@ -680,9 +673,16 @@ export default function FantasyLeague() {
                                           <PencilIcon className="h-4 w-4" />
                                         </Button>
                                       </div>
-                                      <p className="text-sm text-muted-foreground">
-                                        {format(new Date(race.time), "HH:mm")}
-                                      </p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">
+                                          {formatDistance(new Date(race.race_time), new Date(), {
+                                            addSuffix: true,
+                                          })}
+                                        </span>
+                                      </div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {format(new Date(race.race_time), "h:mm a")}
+                                      </div>
                                     </>
                                   )}
                                 </div>
