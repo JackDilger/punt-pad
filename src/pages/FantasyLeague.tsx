@@ -8,7 +8,12 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, TrashIcon, ChevronDownIcon } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface FestivalDay {
   id: string;
@@ -334,6 +339,72 @@ export default function FantasyLeague() {
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-6">Cheltenham Festival Fantasy League</h1>
         
+        <Collapsible>
+          <Card className="mb-6">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold">Rules & Points</h2>
+                  <ChevronDownIcon className="h-5 w-5" />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-medium mb-2">How it Works</h3>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                      <li>Select one horse from each race throughout the festival</li>
+                      <li>Points are awarded for both wins and places</li>
+                      <li>Points available vary based on the horse's odds</li>
+                      <li>Make your selections before the cutoff time each day</li>
+                      <li>The player with the most points at the end of the festival wins</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium mb-2">Points System</h3>
+                    <div className="relative overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="text-left p-2">Odds</th>
+                            <th className="text-left p-2">Win Points</th>
+                            <th className="text-left p-2">Place Points</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-2">Up to 2/1</td>
+                            <td className="p-2">15</td>
+                            <td className="p-2">5</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">Up to 4/1</td>
+                            <td className="p-2">20</td>
+                            <td className="p-2">7</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">Up to 8/1</td>
+                            <td className="p-2">25</td>
+                            <td className="p-2">10</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2">Over 8/1</td>
+                            <td className="p-2">30</td>
+                            <td className="p-2">12</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <Tabs value={selectedDay} onValueChange={handleDayChange} className="w-full">
