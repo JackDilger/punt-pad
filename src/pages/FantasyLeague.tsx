@@ -15,42 +15,50 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface FestivalDay {
+interface Horse {
   id: string;
-  day_number: number;
-  date: string;
-  is_published: boolean;
-  cutoff_time: string;
+  race_id: string;
+  name: string | null;
+  fixed_odds: number | null;
+  points_if_wins: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Race {
   id: string;
   name: string;
-  race_time: string;
+  time: string;
+  day_id: string;
   race_order: number;
   status: 'upcoming' | 'in_progress' | 'finished';
   horses: Horse[];
-}
-
-interface Horse {
-  id: string;
-  name: string | null;
-  fixed_odds: number | null;
-  points_if_wins: number | null;
-  points_if_places: number | null;
+  selected_horse_id?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Selection {
-  raceId: string;
-  horseId: string;
+  id: string;
+  user_id: string;
+  horse_id: string;
+  race_id: string;
+  day_id: string;
+  created_at: string;
+  submitted_at: string | null;
 }
 
-interface EditedHorse {
+interface FestivalDay {
   id: string;
-  name: string | null;
-  fixed_odds: number | null;
-  points_if_wins: number | null;
-  points_if_places: number | null;
+  day_number: number;
+  name: string;
+  date: string;
+  is_published: boolean;
+  cutoff_time: string;
+  races: Race[];
+  selections_submitted: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -87,95 +95,334 @@ const toFractionalOdds = (decimal: number | null): string => {
 };
 
 export default function FantasyLeague() {
-  const [selectedDay, setSelectedDay] = useState("1");
+  const [selectedDay, setSelectedDay] = useState<string>("");
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
-  const [races, setRaces] = useState<Race[]>([]);
-  const [selections, setSelections] = useState<Selection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
-  const [editedHorses, setEditedHorses] = useState<Record<string, EditedHorse>>({});
+  const [editingValues, setEditingValues] = useState<{
+    name: string;
+    time: string;
+    horses: Horse[];
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetchFestivalDays = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("fantasy_festival_days")
-          .select("*")
-          .order("day_number");
-
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          const updatedData = data.map((day) => ({
-            ...day,
-            is_published: true // All days are published for testing
-          }));
-          setFestivalDays(updatedData);
-        }
-      } catch (error) {
-        console.error("Error fetching festival days:", error);
-      }
-    };
-
     fetchFestivalDays();
   }, []);
 
-  useEffect(() => {
-    const fetchRaces = async () => {
-      setLoading(true);
-      try {
-        const currentDay = festivalDays.find(d => d.day_number.toString() === selectedDay);
-        if (!currentDay) return;
+  const fetchFestivalDays = async () => {
+    setLoading(true);
+    try {
+      const { data: daysData, error: daysError } = await supabase
+        .from("fantasy_festival_days")
+        .select("*")
+        .order("date");
 
+      if (daysError) {
+        console.error("Error fetching days:", daysError);
+        throw daysError;
+      }
+      console.log("Days data:", daysData);
+
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        console.error("No user ID found");
+        return;
+      }
+      console.log("User ID:", userId);
+
+      const days: FestivalDay[] = [];
+      
+      for (const day of daysData) {
+        console.log("Processing day:", day);
+        // Get races for this day
         const { data: racesData, error: racesError } = await supabase
           .from("fantasy_races")
           .select(`
             *,
-            horses: fantasy_horses (*)
+            horses:fantasy_horses(*)
           `)
-          .eq("day_id", currentDay.id)
+          .eq("day_id", day.id)
           .order("race_order");
 
-        if (racesError) throw racesError;
-        
-        setRaces(racesData || []);
-      } catch (error) {
-        console.error("Error fetching races:", error);
-      } finally {
-        setLoading(false);
+        if (racesError) {
+          console.error("Error fetching races:", racesError);
+          throw racesError;
+        }
+        console.log("Races data:", racesData);
+
+        // Get user's selections for this day
+        const { data: selectionsData, error: selectionsError } = await supabase
+          .from("fantasy_selections")
+          .select("*")
+          .eq("day_id", day.id)
+          .eq("user_id", userId);
+
+        if (selectionsError) {
+          console.error("Error fetching selections:", selectionsError);
+          throw selectionsError;
+        }
+        console.log("Selections data:", selectionsData);
+
+        const selections = selectionsData as Selection[];
+        const hasSubmittedSelections = selections.some(s => s.submitted_at !== null);
+
+        const races = racesData.map(race => ({
+          ...race,
+          time: race.race_time,
+          race_order: race.race_order || 0,
+          status: race.status || 'upcoming',
+          horses: race.horses || [],
+          selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id || ""
+        })) as Race[];
+
+        // Find the first race of the day to set cutoff time
+        const firstRace = [...races].sort((a, b) => 
+          new Date(a.time).getTime() - new Date(b.time).getTime()
+        )[0];
+
+        // Set cutoff time to 1 hour before first race
+        const cutoffTime = firstRace 
+          ? new Date(new Date(firstRace.time).getTime() - 60 * 60 * 1000).toISOString()
+          : day.cutoff_time;
+
+        days.push({
+          ...day,
+          name: `Day ${day.day_number}`,
+          cutoff_time: cutoffTime,
+          races,
+          selections_submitted: hasSubmittedSelections
+        });
       }
-    };
 
-    if (festivalDays.length > 0) {
-      fetchRaces();
+      console.log("Final processed days:", days);
+      setFestivalDays(days);
+      if (days.length > 0) {
+        setSelectedDay(days[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching festival days:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [selectedDay, festivalDays]);
-
-  const handleDayChange = (day: string) => {
-    setSelectedDay(day);
-    setEditingRaceId(null);
   };
 
-  const handleHorseSelection = (raceId: string, horseId: string) => {
-    setSelections(prev => {
-      const newSelections = prev.filter(s => s.raceId !== raceId);
-      return [...newSelections, { raceId, horseId }];
+  const handleDayChange = (value: string) => {
+    setSelectedDay(value);
+  };
+
+  const handleHorseSelection = async (raceId: string, horseId: string) => {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      const currentDay = festivalDays.find(day => 
+        day.races.some(race => race.id === raceId)
+      );
+      if (!currentDay) return;
+
+      // Check if a selection already exists
+      const { data: existingSelection } = await supabase
+        .from('fantasy_selections')
+        .select()
+        .eq('user_id', userId)
+        .eq('race_id', raceId)
+        .single();
+
+      if (existingSelection) {
+        // Update existing selection
+        const { error: updateError } = await supabase
+          .from('fantasy_selections')
+          .update({ horse_id: horseId })
+          .eq('id', existingSelection.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create new selection
+        const { error: insertError } = await supabase
+          .from('fantasy_selections')
+          .insert({
+            user_id: userId,
+            horse_id: horseId,
+            race_id: raceId,
+            day_id: currentDay.id
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      // Update local state
+      setFestivalDays(days => days.map(day => {
+        if (day.id === currentDay.id) {
+          return {
+            ...day,
+            races: day.races.map(race => {
+              if (race.id === raceId) {
+                return {
+                  ...race,
+                  selected_horse_id: horseId
+                };
+              }
+              return race;
+            })
+          };
+        }
+        return day;
+      }));
+    } catch (error) {
+      console.error('Error updating selection:', error);
+    }
+  };
+
+  const handleSubmitSelections = async () => {
+    try {
+      setIsSubmitting(true);
+      const currentDay = festivalDays.find(day => day.id === selectedDay);
+      if (!currentDay) return;
+
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      // Check if all races have selections
+      const allRacesSelected = currentDay.races.every(race => race.selected_horse_id);
+      if (!allRacesSelected) {
+        alert("Please select a horse for all races before submitting.");
+        return;
+      }
+
+      // Update all selections for the day with submitted_at
+      const { error } = await supabase
+        .from("fantasy_selections")
+        .update({ submitted_at: new Date().toISOString() })
+        .eq("day_id", currentDay.id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setFestivalDays(days => days.map(day => 
+        day.id === currentDay.id 
+          ? { ...day, selections_submitted: true }
+          : day
+      ));
+
+      alert("Your selections have been submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting selections:", error);
+      alert("There was an error submitting your selections. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartEditing = (race: Race) => {
+    setEditingRaceId(race.id);
+    setEditingValues({
+      name: race.name,
+      time: format(new Date(race.time), 'HH:mm'),
+      horses: [...race.horses]
     });
   };
 
-  const getSelectedHorse = (raceId: string) => {
-    return selections.find(s => s.raceId === raceId)?.horseId || "";
+  const handleCancelEditing = () => {
+    setEditingRaceId(null);
+    setEditingValues(null);
   };
 
-  const handleHorseChange = (horseId: string, field: keyof EditedHorse, value: string | number | null) => {
-    setEditedHorses(prev => ({
-      ...prev,
-      [horseId]: {
-        ...prev[horseId] || { id: horseId },
-        [field]: value === '' ? null : value
-      } as EditedHorse
-    }));
+  const handleHorseFieldChange = (horseId: string, field: keyof Horse, value: string | number | null) => {
+    if (!editingValues) return;
+    
+    setEditingValues({
+      ...editingValues,
+      horses: editingValues.horses.map(horse => {
+        if (horse.id === horseId) {
+          return {
+            ...horse,
+            [field]: value
+          };
+        }
+        return horse;
+      })
+    });
+  };
+
+  const handleUpdateRace = async (raceId: string) => {
+    if (!editingValues) return;
+    
+    try {
+      setSaving(true);
+      const currentDay = festivalDays.find(day => 
+        day.races.some(race => race.id === raceId)
+      );
+      const race = currentDay?.races.find(r => r.id === raceId);
+      if (!currentDay || !race) return;
+
+      // Parse the time input (HH:mm) and combine with the existing date
+      const currentDate = new Date(race.time);
+      const [hours, minutes] = editingValues.time.split(':');
+      currentDate.setHours(parseInt(hours, 10));
+      currentDate.setMinutes(parseInt(minutes, 10));
+
+      // Update race details
+      const { error: raceError } = await supabase
+        .from('fantasy_races')
+        .update({
+          name: editingValues.name,
+          race_time: currentDate.toISOString()
+        })
+        .eq('id', raceId);
+
+      if (raceError) throw raceError;
+
+      // Update all horses
+      for (const horse of editingValues.horses) {
+        const { error: horseError } = await supabase
+          .from('fantasy_horses')
+          .update({
+            name: horse.name,
+            fixed_odds: horse.fixed_odds,
+            points_if_wins: horse.points_if_wins
+          })
+          .eq('id', horse.id);
+
+        if (horseError) throw horseError;
+      }
+
+      // Refresh the races data
+      const { data: updatedRace, error: fetchError } = await supabase
+        .from('fantasy_races')
+        .select(`
+          *,
+          horses:fantasy_horses(*)
+        `)
+        .eq('id', raceId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update local state
+      setFestivalDays(days => days.map(day => {
+        if (day.id === currentDay.id) {
+          return {
+            ...day,
+            races: day.races.map(race => race.id === raceId ? {
+              ...updatedRace,
+              time: updatedRace.race_time,
+              horses: updatedRace.horses || [],
+              selected_horse_id: race.selected_horse_id
+            } : race)
+          };
+        }
+        return day;
+      }));
+
+      handleCancelEditing();
+    } catch (error) {
+      console.error('Error updating race:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAddHorse = async (raceId: string) => {
@@ -187,38 +434,27 @@ export default function FantasyLeague() {
           race_id: raceId,
           name: null,
           fixed_odds: null,
-          points_if_wins: null,
-          points_if_places: null
+          points_if_wins: null
         })
         .select()
         .single();
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       // Update local state
-      setRaces(prev => prev.map(race => {
-        if (race.id === raceId) {
-          return {
-            ...race,
-            horses: [...race.horses, data]
-          };
-        }
-        return race;
-      }));
-
-      // Start editing the new horse
-      setEditedHorses(prev => ({
-        ...prev,
-        [data.id]: {
-          id: data.id,
-          name: null,
-          fixed_odds: null,
-          points_if_wins: null,
-          points_if_places: null
-        }
+      setFestivalDays(days => days.map(day => {
+        return {
+          ...day,
+          races: day.races.map(race => {
+            if (race.id === raceId) {
+              return {
+                ...race,
+                horses: [...race.horses, data]
+              };
+            }
+            return race;
+          })
+        };
       }));
     } catch (error) {
       console.error('Error adding horse:', error);
@@ -238,97 +474,22 @@ export default function FantasyLeague() {
       if (error) throw error;
 
       // Update local state
-      setRaces(prev => prev.map(race => {
-        if (race.id === raceId) {
-          return {
-            ...race,
-            horses: race.horses.filter(h => h.id !== horseId)
-          };
-        }
-        return race;
+      setFestivalDays(days => days.map(day => {
+        return {
+          ...day,
+          races: day.races.map(race => {
+            if (race.id === raceId) {
+              return {
+                ...race,
+                horses: race.horses.filter(h => h.id !== horseId)
+              };
+            }
+            return race;
+          })
+        };
       }));
-
-      // Remove from edited horses if present
-      setEditedHorses(prev => {
-        const { [horseId]: removed, ...rest } = prev;
-        return rest;
-      });
     } catch (error) {
       console.error('Error removing horse:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdateRace = async (raceId: string) => {
-    try {
-      setSaving(true);
-      const race = races.find(r => r.id === raceId);
-      if (!race) return;
-
-      // Get the edited values from the form
-      const nameInput = document.getElementById(`race-name-${raceId}`) as HTMLInputElement;
-      const timeInput = document.getElementById(`race-time-${raceId}`) as HTMLInputElement;
-      
-      if (!nameInput || !timeInput) return;
-
-      // Parse the time input (HH:mm) and combine with the existing date
-      const currentDate = new Date(race.race_time);
-      const [hours, minutes] = timeInput.value.split(':');
-      currentDate.setHours(parseInt(hours, 10));
-      currentDate.setMinutes(parseInt(minutes, 10));
-
-      // Update race details
-      const { error: raceError } = await supabase
-        .from('fantasy_races')
-        .update({
-          name: nameInput.value,
-          race_time: currentDate.toISOString()
-        })
-        .eq('id', raceId);
-
-      if (raceError) throw raceError;
-
-      // Update any edited horses
-      const horseUpdates = race.horses
-        .map(horse => ({
-          id: horse.id,
-          name: editedHorses[horse.id]?.name ?? horse.name,
-          fixed_odds: editedHorses[horse.id]?.fixed_odds ?? horse.fixed_odds,
-          points_if_wins: editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins,
-          points_if_places: editedHorses[horse.id]?.points_if_places ?? horse.points_if_places
-        }))
-        .filter(horse => editedHorses[horse.id]); // Only update edited horses
-
-      if (horseUpdates.length > 0) {
-        for (const horse of horseUpdates) {
-          const { error: horseError } = await supabase
-            .from('fantasy_horses')
-            .update(horse)
-            .eq('id', horse.id);
-
-          if (horseError) throw horseError;
-        }
-      }
-
-      // Refresh the races data
-      const { data: updatedRace, error: fetchError } = await supabase
-        .from('fantasy_races')
-        .select(`
-          *,
-          horses: fantasy_horses (*)
-        `)
-        .eq('id', raceId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Update local state
-      setRaces(prev => prev.map(r => r.id === raceId ? updatedRace : r));
-      setEditedHorses({});
-      setEditingRaceId(null);
-    } catch (error) {
-      console.error('Error updating race:', error);
     } finally {
       setSaving(false);
     }
@@ -409,58 +570,70 @@ export default function FantasyLeague() {
           <CardContent className="p-0">
             <Tabs value={selectedDay} onValueChange={handleDayChange} className="w-full">
               <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
-                {[1, 2, 3, 4].map((dayNumber) => {
-                  const day = festivalDays.find(d => d.day_number === dayNumber);
-                  const isPublished = day?.is_published || false;
-                  
-                  return (
-                    <TabsTrigger 
-                      key={dayNumber}
-                      value={dayNumber.toString()}
-                      disabled={false}
-                      className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
-                    >
-                      <div className="flex flex-col items-center py-3 w-full">
-                        <span>{`Day ${dayNumber}`}</span>
-                        {!isPublished && (
-                          <span className="text-xs text-muted-foreground mt-1">
-                            Coming Soon
-                          </span>
-                        )}
-                      </div>
-                    </TabsTrigger>
-                  );
-                })}
+                {festivalDays.map((day) => (
+                  <TabsTrigger 
+                    key={day.id}
+                    value={day.id}
+                    disabled={false}
+                    className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
+                  >
+                    <div className="flex flex-col items-center py-3 w-full">
+                      <span>{day.name}</span>
+                      {day.selections_submitted && (
+                        <span className="text-xs text-muted-foreground mt-1">
+                          Selections submitted
+                        </span>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                ))}
               </TabsList>
 
-              {[1, 2, 3, 4].map((dayNumber) => (
-                <TabsContent key={dayNumber} value={dayNumber.toString()} className="p-6 pt-4 bg-white">
+              {festivalDays.map((day) => (
+                <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-xl font-semibold">Day {dayNumber} Races</h2>
-                      {festivalDays.find(d => d.day_number === dayNumber)?.cutoff_time && (
+                      <h2 className="text-xl font-semibold">{day.name} Races</h2>
+                      {day.date && (
                         <p className="text-sm text-muted-foreground">
-                          Selections close at {format(new Date(festivalDays.find(d => d.day_number === dayNumber)?.cutoff_time || ''), 'HH:mm')}
+                          {format(new Date(day.date), 'do MMMM yyyy')}
                         </p>
                       )}
                     </div>
 
                     {loading ? (
                       <p>Loading races...</p>
-                    ) : races.length > 0 ? (
+                    ) : day.races.length > 0 ? (
                       <div className="space-y-4">
-                        {races.map((race) => (
+                        {day.selections_submitted ? (
+                          <div className="bg-green-50 p-4 rounded-md mb-4">
+                            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 p-4 rounded-md mb-4">
+                            <p className="text-yellow-700">
+                              Selections close at {format(new Date(day.cutoff_time), "HH:mm")}. 
+                              Make sure to submit your selections before then.
+                            </p>
+                          </div>
+                        )}
+
+                        {day.races.map((race) => (
                           <Card key={race.id} className="p-4">
                             <div className="space-y-4">
                               <div className="flex justify-between items-start">
                                 <div className="space-y-1">
-                                  {editingRaceId === race.id ? (
-                                    <div className="space-y-4">
+                                  {editingRaceId === race.id && editingValues ? (
+                                    <div className="space-y-2">
                                       <div>
                                         <Label htmlFor={`race-name-${race.id}`}>Race Name</Label>
                                         <Input
                                           id={`race-name-${race.id}`}
-                                          defaultValue={race.name}
+                                          value={editingValues.name}
+                                          onChange={(e) => setEditingValues({
+                                            ...editingValues,
+                                            name: e.target.value
+                                          })}
                                           className="w-[300px]"
                                         />
                                       </div>
@@ -469,7 +642,11 @@ export default function FantasyLeague() {
                                         <Input
                                           id={`race-time-${race.id}`}
                                           type="time"
-                                          defaultValue={format(new Date(race.race_time), 'HH:mm')}
+                                          value={editingValues.time}
+                                          onChange={(e) => setEditingValues({
+                                            ...editingValues,
+                                            time: e.target.value
+                                          })}
                                           className="w-[200px]"
                                         />
                                       </div>
@@ -477,13 +654,14 @@ export default function FantasyLeague() {
                                         <Button 
                                           variant="secondary" 
                                           size="sm"
-                                          onClick={() => setEditingRaceId(null)}
+                                          onClick={handleCancelEditing}
                                         >
                                           Cancel
                                         </Button>
                                         <Button 
                                           size="sm"
                                           onClick={() => handleUpdateRace(race.id)}
+                                          disabled={saving}
                                         >
                                           Save Changes
                                         </Button>
@@ -497,20 +675,21 @@ export default function FantasyLeague() {
                                           variant="ghost"
                                           size="icon"
                                           className="h-8 w-8"
-                                          onClick={() => setEditingRaceId(race.id)}
+                                          onClick={() => handleStartEditing(race)}
                                         >
                                           <PencilIcon className="h-4 w-4" />
                                         </Button>
                                       </div>
                                       <p className="text-sm text-muted-foreground">
-                                        {format(new Date(race.race_time), 'HH:mm')}
+                                        {format(new Date(race.time), "HH:mm")}
                                       </p>
                                     </>
                                   )}
                                 </div>
                                 <Select
-                                  value={getSelectedHorse(race.id)}
+                                  value={race.selected_horse_id || ""}
                                   onValueChange={(value) => handleHorseSelection(race.id, value)}
+                                  disabled={day.selections_submitted}
                                 >
                                   <SelectTrigger className="w-[200px]">
                                     <SelectValue placeholder="Select a horse" />
@@ -529,83 +708,85 @@ export default function FantasyLeague() {
                                   </SelectContent>
                                 </Select>
                               </div>
-
-                              {editingRaceId === race.id && (
-                                <div className="border-t pt-4 mt-4">
-                                  <h4 className="font-medium mb-2">Horses</h4>
-                                  <div className="space-y-2">
-                                    {race.horses?.map((horse) => (
-                                      <div key={horse.id} className="flex items-center justify-between bg-muted/50 p-2 rounded">
-                                        <div>
-                                          <Input
-                                            value={editedHorses[horse.id]?.name ?? horse.name ?? ''}
-                                            onChange={(e) => handleHorseChange(horse.id, 'name', e.target.value)}
-                                            className="w-[200px]"
-                                            placeholder="Enter horse name"
-                                          />
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                          <Input
-                                            type="number"
-                                            value={editedHorses[horse.id]?.fixed_odds ?? horse.fixed_odds ?? ''}
-                                            onChange={(e) => handleHorseChange(horse.id, 'fixed_odds', e.target.value ? parseFloat(e.target.value) : null)}
-                                            className="w-[100px]"
-                                            step="0.01"
-                                            min="1"
-                                            placeholder="e.g. 2.50"
-                                          />
-                                          <Input
-                                            type="number"
-                                            value={editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins ?? ''}
-                                            onChange={(e) => handleHorseChange(horse.id, 'points_if_wins', e.target.value ? parseInt(e.target.value) : null)}
-                                            className="w-[100px]"
-                                            min="1"
-                                            placeholder="Win pts"
-                                          />
-                                          <Input
-                                            type="number"
-                                            value={editedHorses[horse.id]?.points_if_places ?? horse.points_if_places ?? ''}
-                                            onChange={(e) => handleHorseChange(horse.id, 'points_if_places', e.target.value ? parseInt(e.target.value) : null)}
-                                            className="w-[100px]"
-                                            min="1"
-                                            placeholder="Place pts"
-                                          />
-                                          <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleRemoveHorse(race.id, horse.id)}
-                                            disabled={saving}
-                                          >
-                                            <TrashIcon className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full"
-                                      onClick={() => handleAddHorse(race.id)}
-                                      disabled={saving}
-                                    >
-                                      <PlusIcon className="h-4 w-4 mr-2" />
-                                      Add Horse
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
                             </div>
+
+                            {editingRaceId === race.id && editingValues && (
+                              <div className="border-t pt-4 mt-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-medium">Horses</h4>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAddHorse(race.id)}
+                                    disabled={saving}
+                                  >
+                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    Add Horse
+                                  </Button>
+                                </div>
+                                <div className="space-y-2">
+                                  {editingValues.horses.map((horse) => (
+                                    <div key={horse.id} className="flex items-center justify-between bg-muted/50 p-2 rounded">
+                                      <Input
+                                        value={horse.name || ''}
+                                        onChange={(e) => handleHorseFieldChange(horse.id, 'name', e.target.value)}
+                                        className="w-[200px]"
+                                        placeholder="Enter horse name"
+                                      />
+                                      <div className="flex items-center space-x-2">
+                                        <Input
+                                          type="number"
+                                          value={horse.fixed_odds || ''}
+                                          onChange={(e) => handleHorseFieldChange(horse.id, 'fixed_odds', e.target.value ? parseFloat(e.target.value) : null)}
+                                          className="w-[100px]"
+                                          step="0.01"
+                                          min="1"
+                                          placeholder="e.g. 2.50"
+                                        />
+                                        <Input
+                                          type="number"
+                                          value={horse.points_if_wins || ''}
+                                          onChange={(e) => handleHorseFieldChange(horse.id, 'points_if_wins', e.target.value ? parseInt(e.target.value) : null)}
+                                          className="w-[100px]"
+                                          min="1"
+                                          placeholder="Win pts"
+                                        />
+                                        <Button
+                                          variant="destructive"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          onClick={() => handleRemoveHorse(race.id, horse.id)}
+                                          disabled={saving}
+                                        >
+                                          <TrashIcon className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </Card>
                         ))}
+
+                        {!day.selections_submitted && (
+                          <div className="flex justify-end mt-6">
+                            <Button 
+                              onClick={handleSubmitSelections} 
+                              disabled={isSubmitting || !day.races.every(race => race.selected_horse_id)}
+                            >
+                              {isSubmitting ? "Submitting..." : "Submit Selections"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="bg-muted/50 rounded-lg p-8 text-center">
-                        <p>No races available for Day {dayNumber}</p>
+                        <p>No races available for {day.name}</p>
                         <p className="text-sm text-muted-foreground mt-2">
-                          {festivalDays.find(d => d.day_number === dayNumber)?.is_published 
-                            ? "Races will be displayed here once available"
-                            : "This day's races are not yet published"}
+                          {day.selections_submitted 
+                            ? "Selections have already been submitted for this day"
+                            : "Races will be displayed here once available"}
                         </p>
                       </div>
                     )}
