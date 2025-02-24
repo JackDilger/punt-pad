@@ -8,13 +8,14 @@ import { format, formatDistance } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PencilIcon, PlusIcon, TrashIcon, ChevronDownIcon } from "lucide-react";
+import { X, Plus, Pencil } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Database } from '@/integrations/supabase/types';
+import { ChevronDown } from "lucide-react";
 
 interface FestivalDay {
   id: string;
@@ -51,6 +52,7 @@ interface Horse {
   points_if_places: number;
   created_at: string;
   updated_at: string;
+  _delete?: boolean;
 }
 
 interface Selection {
@@ -340,6 +342,49 @@ export default function FantasyLeague() {
     });
   };
 
+  const handleAddHorse = () => {
+    if (!editingValues) return;
+
+    const tempId = `temp-${Date.now()}`;
+    setEditingValues({
+      ...editingValues,
+      horses: [
+        ...editingValues.horses,
+        {
+          id: tempId,
+          race_id: editingRaceId!,
+          name: '',
+          fixed_odds: 0,
+          points_if_wins: 0,
+          points_if_places: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]
+    });
+  };
+
+  const handleDeleteHorse = async (horseId: string) => {
+    if (!editingValues) return;
+
+    // Just remove from local state if it's a temporary horse
+    if (horseId.startsWith('temp-')) {
+      setEditingValues({
+        ...editingValues,
+        horses: editingValues.horses.filter(h => h.id !== horseId)
+      });
+      return;
+    }
+
+    // Otherwise, mark it for deletion when saving
+    setEditingValues({
+      ...editingValues,
+      horses: editingValues.horses.map(h => 
+        h.id === horseId ? { ...h, _delete: true } : h
+      ).filter(h => !h._delete)
+    });
+  };
+
   const handleUpdateRace = async (raceId: string) => {
     if (!editingValues) return;
     
@@ -368,14 +413,34 @@ export default function FantasyLeague() {
 
       if (raceError) throw raceError;
 
-      // Update all horses
-      for (const horse of editingValues.horses) {
+      // Handle new horses
+      const newHorses = editingValues.horses.filter(h => h.id.startsWith('temp-'));
+      for (const horse of newHorses) {
+        const { data: newHorse, error: insertError } = await supabase
+          .from('fantasy_horses')
+          .insert({
+            race_id: raceId,
+            name: horse.name || null,
+            fixed_odds: horse.fixed_odds || null,
+            points_if_wins: horse.points_if_wins || null,
+            points_if_places: horse.points_if_places || null
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+      }
+
+      // Update existing horses
+      const existingHorses = editingValues.horses.filter(h => !h.id.startsWith('temp-'));
+      for (const horse of existingHorses) {
         const { error: horseError } = await supabase
           .from('fantasy_horses')
           .update({
             name: horse.name,
             fixed_odds: horse.fixed_odds,
-            points_if_wins: horse.points_if_wins
+            points_if_wins: horse.points_if_wins,
+            points_if_places: horse.points_if_places
           })
           .eq('id', horse.id);
 
@@ -399,91 +464,27 @@ export default function FantasyLeague() {
         if (day.id === currentDay.id) {
           return {
             ...day,
-            races: day.races.map(race => race.id === raceId ? {
-              ...updatedRace,
-              time: updatedRace.race_time,
-              horses: updatedRace.horses || [],
-              selected_horse_id: race.selected_horse_id
-            } : race)
+            races: day.races.map(r => 
+              r.id === raceId 
+                ? {
+                    ...r,
+                    name: editingValues.name,
+                    race_time: currentDate.toISOString(),
+                    horses: updatedRace.horses
+                  }
+                : r
+            )
           };
         }
         return day;
       }));
 
-      handleCancelEditing();
+      setEditingRaceId(null);
+      setEditingValues(null);
+      setSaving(false);
     } catch (error) {
       console.error('Error updating race:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddHorse = async (raceId: string) => {
-    try {
-      setSaving(true);
-      const { data, error } = await supabase
-        .from('fantasy_horses')
-        .insert({
-          race_id: raceId,
-          name: null,
-          fixed_odds: null,
-          points_if_wins: null
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update local state
-      setFestivalDays(days => days.map(day => {
-        return {
-          ...day,
-          races: day.races.map(race => {
-            if (race.id === raceId) {
-              return {
-                ...race,
-                horses: [...race.horses, data]
-              };
-            }
-            return race;
-          })
-        };
-      }));
-    } catch (error) {
-      console.error('Error adding horse:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveHorse = async (raceId: string, horseId: string) => {
-    try {
-      setSaving(true);
-      const { error } = await supabase
-        .from('fantasy_horses')
-        .delete()
-        .eq('id', horseId);
-
-      if (error) throw error;
-
-      // Update local state
-      setFestivalDays(days => days.map(day => {
-        return {
-          ...day,
-          races: day.races.map(race => {
-            if (race.id === raceId) {
-              return {
-                ...race,
-                horses: race.horses.filter(h => h.id !== horseId)
-              };
-            }
-            return race;
-          })
-        };
-      }));
-    } catch (error) {
-      console.error('Error removing horse:', error);
-    } finally {
+      alert('There was an error updating the race. Please try again.');
       setSaving(false);
     }
   };
@@ -499,7 +500,7 @@ export default function FantasyLeague() {
               <CardHeader className="cursor-pointer hover:bg-muted/50">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">Rules & Points</h2>
-                  <ChevronDownIcon className="h-5 w-5" />
+                  <ChevronDown className="h-5 w-5" />
                 </div>
               </CardHeader>
             </CollapsibleTrigger>
@@ -670,7 +671,7 @@ export default function FantasyLeague() {
                                           className="h-8 w-8"
                                           onClick={() => handleStartEditing(race)}
                                         >
-                                          <PencilIcon className="h-4 w-4" />
+                                          <Pencil className="h-4 w-4" />
                                         </Button>
                                       </div>
                                       <div className="text-sm text-muted-foreground">
@@ -710,50 +711,91 @@ export default function FantasyLeague() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleAddHorse(race.id)}
-                                    disabled={saving}
+                                    onClick={handleAddHorse}
+                                    className="mb-4"
                                   >
-                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    <Plus className="h-4 w-4 mr-2" />
                                     Add Horse
                                   </Button>
                                 </div>
                                 <div className="space-y-2">
-                                  {editingValues.horses.map((horse) => (
-                                    <div key={horse.id} className="flex items-center justify-between bg-muted/50 p-2 rounded">
-                                      <Input
-                                        value={horse.name || ''}
-                                        onChange={(e) => handleHorseFieldChange(horse.id, 'name', e.target.value)}
-                                        className="w-[200px]"
-                                        placeholder="Enter horse name"
-                                      />
-                                      <div className="flex items-center space-x-2">
-                                        <Input
-                                          type="number"
-                                          value={horse.fixed_odds || ''}
-                                          onChange={(e) => handleHorseFieldChange(horse.id, 'fixed_odds', e.target.value ? parseFloat(e.target.value) : null)}
-                                          className="w-[100px]"
-                                          step="0.01"
-                                          min="1"
-                                          placeholder="e.g. 2.50"
-                                        />
-                                        <Input
-                                          type="number"
-                                          value={horse.points_if_wins || ''}
-                                          onChange={(e) => handleHorseFieldChange(horse.id, 'points_if_wins', e.target.value ? parseInt(e.target.value) : null)}
-                                          className="w-[100px]"
-                                          min="1"
-                                          placeholder="Win pts"
-                                        />
-                                        <Button
-                                          variant="destructive"
-                                          size="icon"
-                                          className="h-8 w-8"
-                                          onClick={() => handleRemoveHorse(race.id, horse.id)}
-                                          disabled={saving}
-                                        >
-                                          <TrashIcon className="h-4 w-4" />
-                                        </Button>
+                                  {editingValues.horses.map((horse, index) => (
+                                    <div
+                                      key={horse.id}
+                                      className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
+                                    >
+                                      <div className="flex-1 mr-4">
+                                        <div className="flex items-center gap-4">
+                                          <div className="flex-1">
+                                            <Input
+                                              value={horse.name}
+                                              onChange={(e) =>
+                                                handleHorseFieldChange(horse.id, 'name', e.target.value)
+                                              }
+                                              className="mb-2"
+                                              placeholder="Horse Name"
+                                            />
+                                            <div className="grid grid-cols-3 gap-4">
+                                              <div>
+                                                <Label>Fixed Odds</Label>
+                                                <Input
+                                                  type="number"
+                                                  value={horse.fixed_odds}
+                                                  onChange={(e) =>
+                                                    handleHorseFieldChange(
+                                                      horse.id,
+                                                      'fixed_odds',
+                                                      parseFloat(e.target.value)
+                                                    )
+                                                  }
+                                                  className="mt-1"
+                                                  placeholder="Fixed Odds"
+                                                />
+                                              </div>
+                                              <div>
+                                                <Label>Points if Wins</Label>
+                                                <Input
+                                                  type="number"
+                                                  value={horse.points_if_wins}
+                                                  onChange={(e) =>
+                                                    handleHorseFieldChange(
+                                                      horse.id,
+                                                      'points_if_wins',
+                                                      parseFloat(e.target.value)
+                                                    )
+                                                  }
+                                                  className="mt-1"
+                                                  placeholder="Points if Wins"
+                                                />
+                                              </div>
+                                              <div>
+                                                <Label>Points if Places</Label>
+                                                <Input
+                                                  type="number"
+                                                  value={horse.points_if_places}
+                                                  onChange={(e) =>
+                                                    handleHorseFieldChange(
+                                                      horse.id,
+                                                      'points_if_places',
+                                                      parseFloat(e.target.value)
+                                                    )
+                                                  }
+                                                  className="mt-1"
+                                                  placeholder="Points if Places"
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDeleteHorse(horse.id)}
+                                        className="h-8 w-8 flex-shrink-0"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   ))}
                                 </div>
