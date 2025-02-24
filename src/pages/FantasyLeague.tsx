@@ -673,15 +673,8 @@ export default function FantasyLeague() {
                                           <PencilIcon className="h-4 w-4" />
                                         </Button>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium">
-                                          {formatDistance(new Date(race.race_time), new Date(), {
-                                            addSuffix: true,
-                                          })}
-                                        </span>
-                                      </div>
                                       <div className="text-sm text-muted-foreground">
-                                        {format(new Date(race.race_time), "h:mm a")}
+                                        {format(new Date(race.race_time), "HH:mm")}
                                       </div>
                                     </>
                                   )}
