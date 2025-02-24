@@ -32,6 +32,7 @@ interface Horse {
   name: string | null;
   fixed_odds: number | null;
   points_if_wins: number | null;
+  points_if_places: number | null;
 }
 
 interface Selection {
@@ -44,7 +45,41 @@ interface EditedHorse {
   name: string | null;
   fixed_odds: number | null;
   points_if_wins: number | null;
+  points_if_places: number | null;
 }
+
+const toFractionalOdds = (decimal: number | null): string => {
+  if (!decimal) return '';
+  const odds: Record<number, string> = {
+    2: '1/1',
+    2.5: '6/4',
+    3: '2/1',
+    3.5: '5/2',
+    4: '3/1',
+    4.5: '7/2',
+    5: '4/1',
+    5.5: '9/2',
+    6: '5/1',
+    6.5: '11/2',
+    7: '6/1',
+    8: '7/1',
+    9: '8/1',
+    10: '9/1',
+    11: '10/1',
+    1.5: '1/2',
+    1.67: '2/3',
+    1.75: '3/4'
+  };
+  
+  // Find the closest match
+  let closest = Object.entries(odds).reduce((prev, [key, value]) => {
+    const prevDiff = Math.abs(parseFloat(prev[0]) - decimal);
+    const currDiff = Math.abs(parseFloat(key) - decimal);
+    return currDiff < prevDiff ? [key, value] : prev;
+  });
+
+  return closest[1];
+};
 
 export default function FantasyLeague() {
   const [selectedDay, setSelectedDay] = useState("1");
@@ -147,7 +182,8 @@ export default function FantasyLeague() {
           race_id: raceId,
           name: null,
           fixed_odds: null,
-          points_if_wins: null
+          points_if_wins: null,
+          points_if_places: null
         })
         .select()
         .single();
@@ -175,7 +211,8 @@ export default function FantasyLeague() {
           id: data.id,
           name: null,
           fixed_odds: null,
-          points_if_wins: null
+          points_if_wins: null,
+          points_if_places: null
         }
       }));
     } catch (error) {
@@ -253,7 +290,8 @@ export default function FantasyLeague() {
           id: horse.id,
           name: editedHorses[horse.id]?.name ?? horse.name,
           fixed_odds: editedHorses[horse.id]?.fixed_odds ?? horse.fixed_odds,
-          points_if_wins: editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins
+          points_if_wins: editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins,
+          points_if_places: editedHorses[horse.id]?.points_if_places ?? horse.points_if_places
         }))
         .filter(horse => editedHorses[horse.id]); // Only update edited horses
 
@@ -409,10 +447,10 @@ export default function FantasyLeague() {
                                   <SelectContent>
                                     {race.horses?.map((horse) => (
                                       <SelectItem key={horse.id} value={horse.id}>
-                                        <div className="flex justify-between items-center w-full">
-                                          <span>{horse.name}</span>
+                                        <div className="flex items-center w-full gap-2">
+                                          <span className="flex-grow">{horse.name}</span>
                                           <span className="text-sm text-muted-foreground">
-                                            {horse.fixed_odds} | {horse.points_if_wins}pts
+                                            {toFractionalOdds(horse.fixed_odds)}
                                           </span>
                                         </div>
                                       </SelectItem>
@@ -451,7 +489,15 @@ export default function FantasyLeague() {
                                             onChange={(e) => handleHorseChange(horse.id, 'points_if_wins', e.target.value ? parseInt(e.target.value) : null)}
                                             className="w-[100px]"
                                             min="1"
-                                            placeholder="e.g. 15"
+                                            placeholder="Win pts"
+                                          />
+                                          <Input
+                                            type="number"
+                                            value={editedHorses[horse.id]?.points_if_places ?? horse.points_if_places ?? ''}
+                                            onChange={(e) => handleHorseChange(horse.id, 'points_if_places', e.target.value ? parseInt(e.target.value) : null)}
+                                            className="w-[100px]"
+                                            min="1"
+                                            placeholder="Place pts"
                                           />
                                           <Button
                                             variant="destructive"
