@@ -500,9 +500,24 @@ export default function FantasyLeague() {
 
         <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="selections">Selections</TabsTrigger>
-            <TabsTrigger value="stable">My Stable</TabsTrigger>
-            <TabsTrigger value="leaderboard">League Table</TabsTrigger>
+            <TabsTrigger 
+              value="selections"
+              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+            >
+              Selections
+            </TabsTrigger>
+            <TabsTrigger 
+              value="stable"
+              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+            >
+              My Stable
+            </TabsTrigger>
+            <TabsTrigger 
+              value="leaderboard"
+              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+            >
+              League Table
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="selections" className="space-y-4">
