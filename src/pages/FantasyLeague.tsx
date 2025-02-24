@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Plus, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -685,7 +686,12 @@ export default function FantasyLeague() {
                                   onValueChange={(value) => handleHorseSelection(race.id, value)}
                                   disabled={day.selections_submitted}
                                 >
-                                  <SelectTrigger className="w-[200px]">
+                                  <SelectTrigger 
+                                    className={cn(
+                                      "w-[200px]",
+                                      race.selected_horse_id && "border-green-500"
+                                    )}
+                                  >
                                     <SelectValue placeholder="Select a horse" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -693,7 +699,7 @@ export default function FantasyLeague() {
                                       <SelectItem key={horse.id} value={horse.id}>
                                         <div className="flex items-center w-full gap-2">
                                           <span className="flex-grow">{horse.name}</span>
-                                          <span className="text-sm text-muted-foreground">
+                                          <span className="text-sm">
                                             {toFractionalOdds(horse.fixed_odds)}
                                           </span>
                                         </div>
