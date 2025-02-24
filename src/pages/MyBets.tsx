@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Table,
   TableBody,
@@ -16,11 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { formatDistance } from "date-fns";
 import { fractionalToDecimal } from "@/lib/utils/odds";
 import { AuthLayout } from "@/components/layout/AuthLayout";
-import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Pencil, Save, Trash2, Check, X } from "lucide-react";
 import {
@@ -35,25 +36,29 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface BetSelection {
+  id: string;
+  bet_id: string;
+  event: string;
+  horse: string;
+  odds: string;
+  is_win: boolean;
+  status: 'Pending' | 'Won' | 'Lost' | 'Void';
+}
+
 interface BetWithSelections {
   id: string;
+  user_id: string;
   created_at: string;
-  bet_type: "Single" | "Accumulator";
+  bet_type: 'Single' | 'Accumulator';
   stake: number;
   total_odds: string;
   is_each_way: boolean;
-  is_free_bet: boolean;
-  status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
-  potential_return: number | null;
   place_terms: number;
-  selections: {
-    id: string;
-    event: string;
-    horse: string;
-    odds: string;
-    is_win: boolean;
-    status: "Pending" | "Won" | "Lost" | "Void" | "Placed";
-  }[];
+  is_free_bet: boolean;
+  status: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed';
+  potential_return: number | null;
+  selections: BetSelection[];
 }
 
 export default function MyBets() {
@@ -68,32 +73,33 @@ export default function MyBets() {
 
   const fetchBets = async () => {
     try {
-      // Fetch bets
-      const { data: betsData, error: betsError } = await supabase
-        .from("bets")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Fetch bets with selections
+      const { data: betsData } = await supabase
+        .from('bets')
+        .select('*, bet_selections(*)')
+        .eq('user_id', session.user.id)
+        .returns<(Database['public']['Tables']['bets']['Row'] & {
+          bet_selections: Database['public']['Tables']['bet_selections']['Row'][];
+        })[]>();
 
-      if (betsError) throw betsError;
+      if (!betsData) return null;
 
-      // Fetch selections for each bet
-      const betsWithSelections = await Promise.all(
-        betsData.map(async (bet) => {
-          const { data: selectionsData, error: selectionsError } = await supabase
-            .from("bet_selections")
-            .select("*")
-            .eq("bet_id", bet.id);
+      // Map the data to our interface
+      const mappedBets: BetWithSelections[] = betsData.map(bet => ({
+        ...bet,
+        place_terms: bet.placeterms,
+        selections: bet.bet_selections.map(selection => ({
+          id: selection.id,
+          bet_id: selection.bet_id,
+          event: selection.event,
+          horse: selection.horse,
+          odds: selection.odds,
+          is_win: selection.is_win,
+          status: selection.status
+        }))
+      }));
 
-          if (selectionsError) throw selectionsError;
-
-          return {
-            ...bet,
-            selections: selectionsData,
-          };
-        })
-      );
-
-      setBets(betsWithSelections);
+      setBets(mappedBets);
     } catch (error) {
       console.error("Error fetching bets:", error);
       toast({
@@ -169,60 +175,62 @@ export default function MyBets() {
     try {
       console.log('Saving bet with status:', editingBet.status);
 
-      // First update the bet
-      const { data: updatedBet, error: betError } = await supabase
-        .from("bets")
+      // Update bet details
+      const { error: updateError } = await supabase
+        .from('bets')
         .update({
-          status: editingBet.status,
           stake: editingBet.stake,
           total_odds: editingBet.total_odds,
           is_each_way: editingBet.is_each_way,
+          placeterms: editingBet.place_terms,
           is_free_bet: editingBet.is_free_bet,
-        })
-        .eq('id', editingBet.id)
-        .select('*')
-        .single();
+          potential_return: editingBet.potential_return
+        } satisfies Database['public']['Tables']['bets']['Update'])
+        .eq('id', editingBet.id);
 
-      if (betError) {
-        console.error('Error updating bet:', betError);
-        throw betError;
+      if (updateError) {
+        console.error('Error updating bet:', updateError);
+        throw updateError;
       }
 
-      console.log('Successfully updated bet:', updatedBet);
+      // Update local state
+      setBets(prevBets => prevBets.map(bet => 
+        bet.id === editingBet.id ? editingBet : bet
+      ));
 
       // Then update all selections
       const selectionPromises = editingBet.selections.map(async (selection) => {
-        const { data, error: selectionError } = await supabase
-          .from("bet_selections")
+        const { data, error: updateError } = await supabase
+          .from('bet_selections')
           .update({
             event: selection.event,
             horse: selection.horse,
             odds: selection.odds,
-            status: editingBet.status, // Use the bet's status
-          })
+            status: selection.status
+          } satisfies Database['public']['Tables']['bet_selections']['Update'])
           .eq('id', selection.id)
-          .select('*')
+          .select()
           .single();
 
-        if (selectionError) {
-          console.error('Error updating selection:', selectionError);
-          throw selectionError;
-        }
-
+        if (updateError) throw updateError;
         return data;
       });
 
       const updatedSelections = await Promise.all(selectionPromises);
-      console.log('Successfully updated selections:', updatedSelections);
 
       // Update local state
-      setBets(prevBets => 
-        prevBets.map(bet => 
-          bet.id === editingBet.id 
-            ? { ...updatedBet, selections: updatedSelections }
-            : bet
-        )
-      );
+      setBets(prevBets => prevBets.map(bet => {
+        if (bet.id === editingBet.id) {
+          return {
+            ...bet,
+            selections: updatedSelections.map(selection => ({
+              ...selection,
+              status: selection.status
+            }))
+          } as BetWithSelections;
+        }
+        return bet;
+      }));
 
       setEditingBetId(null);
       setEditingBet(null);
@@ -241,21 +249,67 @@ export default function MyBets() {
     }
   };
 
-  const handleStatusChange = (value: "Pending" | "Won" | "Lost" | "Void" | "Placed", index: number) => {
+  const handleStatusChange = async (betId: string, selectionId: string, newStatus: BetSelection['status'] | 'Placed') => {
     if (!editingBet) return;
 
-    console.log('Changing status to:', value);
-    
-    const newSelections = editingBet.selections.map((selection, i) => ({
-      ...selection,
-      status: i === index ? value : selection.status,
-    }));
+    try {
+      // Update the bet selection status
+      const { error: updateError } = await supabase
+        .from('bet_selections')
+        .update({
+          status: newStatus === 'Placed' ? 'Pending' : newStatus
+        } satisfies Database['public']['Tables']['bet_selections']['Update'])
+        .eq('id', selectionId);
 
-    setEditingBet({
-      ...editingBet,
-      status: value,
-      selections: newSelections,
-    });
+      if (updateError) {
+        console.error('Error updating selection:', updateError);
+        throw updateError;
+      }
+
+      // Update local state
+      setBets(prevBets => prevBets.map(bet => {
+        if (bet.id === editingBet.id) {
+          return {
+            ...bet,
+            selections: bet.selections.map(selection => 
+              selection.id === selectionId 
+                ? { ...selection, status: newStatus === 'Placed' ? 'Pending' : newStatus }
+                : selection
+            )
+          } as BetWithSelections;
+        }
+        return bet;
+      }));
+
+      // If status is 'Placed', update the bet status as well
+      if (newStatus === 'Placed') {
+        const { error: betUpdateError } = await supabase
+          .from('bets')
+          .update({
+            status: 'Placed'
+          } satisfies Database['public']['Tables']['bets']['Update'])
+          .eq('id', betId);
+
+        if (betUpdateError) {
+          console.error('Error updating bet:', betUpdateError);
+          throw betUpdateError;
+        }
+
+        // Update local state for bet status
+        setBets(prevBets => prevBets.map(bet => 
+          bet.id === betId 
+            ? { ...bet, status: 'Placed' } 
+            : bet
+        ));
+      }
+    } catch (error) {
+      console.error("Error updating bet status:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update bet status. Please try again.",
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -536,7 +590,7 @@ export default function MyBets() {
                               key={selection.id}
                               value={selection.status}
                               onValueChange={(value: "Pending" | "Won" | "Lost" | "Void" | "Placed") => 
-                                handleStatusChange(value, index)
+                                handleStatusChange(editingBetId, selection.id, value)
                               }
                             >
                               <SelectTrigger className="w-[120px]">

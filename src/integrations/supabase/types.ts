@@ -18,8 +18,9 @@ export type Database = {
           stake: number
           total_odds: string
           is_each_way: boolean
+          placeterms: number
           is_free_bet: boolean
-          status: 'Pending' | 'Won' | 'Lost' | 'Void'
+          status: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
           potential_return: number | null
         }
         Insert: {
@@ -30,8 +31,9 @@ export type Database = {
           stake: number
           total_odds: string
           is_each_way?: boolean
+          placeterms?: number
           is_free_bet?: boolean
-          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
           potential_return?: number | null
         }
         Update: {
@@ -42,8 +44,9 @@ export type Database = {
           stake?: number
           total_odds?: string
           is_each_way?: boolean
+          placeterms?: number
           is_free_bet?: boolean
-          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
           potential_return?: number | null
         }
         Relationships: [
@@ -90,6 +93,177 @@ export type Database = {
             columns: ["bet_id"]
             isOneToOne: false
             referencedRelation: "bets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      fantasy_selections: {
+        Row: {
+          id: string
+          user_id: string
+          horse_id: string
+          race_id: string
+          day_id: string
+          created_at: string
+          submitted_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          horse_id: string
+          race_id: string
+          day_id: string
+          created_at?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          horse_id?: string
+          race_id?: string
+          day_id?: string
+          created_at?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fantasy_selections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fantasy_selections_horse_id_fkey"
+            columns: ["horse_id"]
+            isOneToOne: false
+            referencedRelation: "fantasy_horses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fantasy_selections_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "fantasy_races"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fantasy_selections_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "fantasy_festival_days"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      fantasy_festival_days: {
+        Row: {
+          id: string
+          day_number: number
+          date: string
+          is_published: boolean
+          cutoff_time: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          day_number: number
+          date: string
+          is_published?: boolean
+          cutoff_time?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          day_number?: number
+          date?: string
+          is_published?: boolean
+          cutoff_time?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fantasy_races: {
+        Row: {
+          id: string
+          name: string
+          race_time: string
+          day_id: string
+          race_order: number
+          status: 'upcoming' | 'in_progress' | 'finished'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          race_time: string
+          day_id: string
+          race_order: number
+          status?: 'upcoming' | 'in_progress' | 'finished'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          race_time?: string
+          day_id?: string
+          race_order?: number
+          status?: 'upcoming' | 'in_progress' | 'finished'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fantasy_races_day_id_fkey"
+            columns: ["day_id"]
+            isOneToOne: false
+            referencedRelation: "fantasy_festival_days"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      fantasy_horses: {
+        Row: {
+          id: string
+          race_id: string
+          name: string | null
+          fixed_odds: number | null
+          points_if_wins: number | null
+          points_if_places: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          race_id: string
+          name?: string | null
+          fixed_odds?: number | null
+          points_if_wins?: number | null
+          points_if_places?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          race_id?: string
+          name?: string | null
+          fixed_odds?: number | null
+          points_if_wins?: number | null
+          points_if_places?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fantasy_horses_race_id_fkey"
+            columns: ["race_id"]
+            isOneToOne: false
+            referencedRelation: "fantasy_races"
             referencedColumns: ["id"]
           }
         ]
