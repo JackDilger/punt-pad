@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import MyBets from "./pages/MyBets";
+import FantasyLeague from "./pages/FantasyLeague";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/my-bets" element={<MyBets />} />
+            <Route path="/fantasy-league" element={<FantasyLeague />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

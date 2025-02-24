@@ -45,6 +45,9 @@ export const Header = () => {
                 <Link to="/my-bets" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                   My Bets
                 </Link>
+                <Link to="/fantasy-league" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                  Fantasy League
+                </Link>
                 <Button
                   variant="ghost"
                   onClick={handleLogout}
