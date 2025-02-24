@@ -1,10 +1,10 @@
+import { useState, useEffect } from "react";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, formatDistance } from "date-fns";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +101,7 @@ const toFractionalOdds = (decimal: number | null): string => {
 
 export default function FantasyLeague() {
   const [selectedDay, setSelectedDay] = useState<string>("");
+  const [selectedSection, setSelectedSection] = useState("selections");
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -492,351 +493,323 @@ export default function FantasyLeague() {
 
   return (
     <AuthLayout>
-      <div className="container mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold mb-6">Cheltenham Festival Fantasy League</h1>
-        
-        <Collapsible>
-          <Card className="mb-6">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Rules & Points</h2>
-                  <ChevronDown className="h-5 w-5" />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-medium mb-2">How it Works</h3>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      <li>Select one horse from each race throughout the festival</li>
-                      <li>Points are awarded for both wins and places</li>
-                      <li>Points available vary based on the horse's odds</li>
-                      <li>Make your selections before the cutoff time each day</li>
-                      <li>The player with the most points at the end of the festival wins</li>
-                    </ul>
-                  </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Fantasy League</h1>
+        </div>
 
-                  <div>
-                    <h3 className="font-medium mb-2">Points System</h3>
-                    <div className="relative overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-muted/50">
-                            <th className="text-left p-2">Odds</th>
-                            <th className="text-left p-2">Win Points</th>
-                            <th className="text-left p-2">Place Points</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="p-2">Up to 2/1</td>
-                            <td className="p-2">15</td>
-                            <td className="p-2">5</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="p-2">Up to 4/1</td>
-                            <td className="p-2">20</td>
-                            <td className="p-2">7</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="p-2">Up to 8/1</td>
-                            <td className="p-2">25</td>
-                            <td className="p-2">10</td>
-                          </tr>
-                          <tr>
-                            <td className="p-2">Over 8/1</td>
-                            <td className="p-2">30</td>
-                            <td className="p-2">12</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+        <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="selections">Selections</TabsTrigger>
+            <TabsTrigger value="stable">My Stable</TabsTrigger>
+            <TabsTrigger value="leaderboard">League Table</TabsTrigger>
+          </TabsList>
 
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <Tabs value={selectedDay} onValueChange={handleDayChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
-                {festivalDays.map((day) => (
-                  <TabsTrigger 
-                    key={day.id}
-                    value={day.id}
-                    disabled={false}
-                    className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
-                  >
-                    <div className="flex flex-col items-center py-3 w-full">
-                      <span>{day.name}</span>
-                      {day.selections_submitted && (
-                        <span className="text-xs text-muted-foreground mt-1">
-                          Selections submitted
-                        </span>
-                      )}
-                    </div>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+          <TabsContent value="selections" className="space-y-4">
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <Tabs value={selectedDay} onValueChange={handleDayChange} className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
+                    {festivalDays.map((day) => (
+                      <TabsTrigger 
+                        key={day.id}
+                        value={day.id}
+                        disabled={false}
+                        className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
+                      >
+                        <div className="flex flex-col items-center py-3 w-full">
+                          <span>{day.name}</span>
+                          {day.selections_submitted && (
+                            <span className="text-xs text-muted-foreground mt-1">
+                              Selections submitted
+                            </span>
+                          )}
+                        </div>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-              {festivalDays.map((day) => (
-                <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-xl font-semibold">{day.name} Races</h2>
-                      {day.date && (
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(day.date), 'do MMMM yyyy')}
-                        </p>
-                      )}
-                    </div>
-
-                    {loading ? (
-                      <p>Loading races...</p>
-                    ) : day.races.length > 0 ? (
-                      <div className="space-y-4">
-                        {day.selections_submitted ? (
-                          <div className="bg-green-50 p-4 rounded-md mb-4">
-                            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
-                          </div>
-                        ) : (
-                          <div className="bg-yellow-50 p-4 rounded-md mb-4">
-                            <p className="text-yellow-700">
-                              Selections close at {format(new Date(day.cutoff_time), "HH:mm")}. 
-                              Make sure to submit your selections before then.
+                  {festivalDays.map((day) => (
+                    <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
+                      <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                          <h2 className="text-xl font-semibold">{day.name} Races</h2>
+                          {day.date && (
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(day.date), 'do MMMM yyyy')}
                             </p>
-                          </div>
-                        )}
+                          )}
+                        </div>
 
-                        {day.races.map((race) => (
-                          <Card key={race.id} className="p-4">
-                            <div className="space-y-4">
-                              <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                  {editingRaceId === race.id && editingValues ? (
-                                    <div className="space-y-2">
-                                      <div>
-                                        <Label htmlFor={`race-name-${race.id}`}>Race Name</Label>
-                                        <Input
-                                          id={`race-name-${race.id}`}
-                                          value={editingValues.name}
-                                          onChange={(e) => setEditingValues({
-                                            ...editingValues,
-                                            name: e.target.value
-                                          })}
-                                          className="w-[300px]"
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label htmlFor={`race-time-${race.id}`}>Race Time</Label>
-                                        <Input
-                                          id={`race-time-${race.id}`}
-                                          type="time"
-                                          value={editingValues.time}
-                                          onChange={(e) => setEditingValues({
-                                            ...editingValues,
-                                            time: e.target.value
-                                          })}
-                                          className="w-[200px]"
-                                        />
-                                      </div>
-                                      <div className="flex space-x-2">
-                                        <Button 
-                                          variant="secondary" 
-                                          size="sm"
-                                          onClick={handleCancelEditing}
-                                        >
-                                          Cancel
-                                        </Button>
-                                        <Button 
-                                          size="sm"
-                                          onClick={() => handleUpdateRace(race.id)}
-                                          disabled={saving}
-                                        >
-                                          Save Changes
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <div className="flex items-center space-x-2">
-                                        <h3 className="font-medium">{race.name}</h3>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8"
-                                          onClick={() => handleStartEditing(race)}
-                                        >
-                                          <Pencil className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {format(new Date(race.race_time), "HH:mm")}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                                <Select
-                                  value={race.selected_horse_id || ""}
-                                  onValueChange={(value) => handleHorseSelection(race.id, value)}
-                                  disabled={day.selections_submitted}
-                                >
-                                  <SelectTrigger 
-                                    className={cn(
-                                      "w-[200px]",
-                                      race.selected_horse_id && "border-green-500"
-                                    )}
-                                  >
-                                    <SelectValue placeholder="Select a horse" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {race.horses?.map((horse) => (
-                                      <SelectItem key={horse.id} value={horse.id}>
-                                        <div className="flex items-center w-full gap-2">
-                                          <span className="flex-grow">{horse.name}</span>
-                                          <span className="text-sm">
-                                            {toFractionalOdds(horse.fixed_odds)}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                        {loading ? (
+                          <p>Loading races...</p>
+                        ) : day.races.length > 0 ? (
+                          <div className="space-y-4">
+                            {day.selections_submitted ? (
+                              <div className="bg-green-50 p-4 rounded-md mb-4">
+                                <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
                               </div>
-                            </div>
+                            ) : (
+                              <div className="bg-yellow-50 p-4 rounded-md mb-4">
+                                <p className="text-yellow-700">
+                                  Selections close at {format(new Date(day.cutoff_time), "HH:mm")}. 
+                                  Make sure to submit your selections before then.
+                                </p>
+                              </div>
+                            )}
 
-                            {editingRaceId === race.id && editingValues && (
-                              <div className="border-t pt-4 mt-4">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="font-medium">Horses</h4>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleAddHorse}
-                                    className="mb-4"
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Horse
-                                  </Button>
-                                </div>
-                                <div className="space-y-2">
-                                  {editingValues.horses.map((horse, index) => (
-                                    <div
-                                      key={horse.id}
-                                      className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
-                                    >
-                                      <div className="flex-1 mr-4">
-                                        <div className="flex items-center gap-4">
-                                          <div className="flex-1">
+                            {day.races.map((race) => (
+                              <Card key={race.id} className="p-4">
+                                <div className="space-y-4">
+                                  <div className="flex justify-between items-start">
+                                    <div className="space-y-1">
+                                      {editingRaceId === race.id && editingValues ? (
+                                        <div className="space-y-2">
+                                          <div>
+                                            <Label htmlFor={`race-name-${race.id}`}>Race Name</Label>
                                             <Input
-                                              value={horse.name}
-                                              onChange={(e) =>
-                                                handleHorseFieldChange(horse.id, 'name', e.target.value)
-                                              }
-                                              className="mb-2"
-                                              placeholder="Horse Name"
+                                              id={`race-name-${race.id}`}
+                                              value={editingValues.name}
+                                              onChange={(e) => setEditingValues({
+                                                ...editingValues,
+                                                name: e.target.value
+                                              })}
+                                              className="w-[300px]"
                                             />
-                                            <div className="grid grid-cols-3 gap-4">
-                                              <div>
-                                                <Label>Fixed Odds</Label>
+                                          </div>
+                                          <div>
+                                            <Label htmlFor={`race-time-${race.id}`}>Race Time</Label>
+                                            <Input
+                                              id={`race-time-${race.id}`}
+                                              type="time"
+                                              value={editingValues.time}
+                                              onChange={(e) => setEditingValues({
+                                                ...editingValues,
+                                                time: e.target.value
+                                              })}
+                                              className="w-[200px]"
+                                            />
+                                          </div>
+                                          <div className="flex space-x-2">
+                                            <Button 
+                                              variant="secondary" 
+                                              size="sm"
+                                              onClick={handleCancelEditing}
+                                            >
+                                              Cancel
+                                            </Button>
+                                            <Button 
+                                              size="sm"
+                                              onClick={() => handleUpdateRace(race.id)}
+                                              disabled={saving}
+                                            >
+                                              Save Changes
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="flex items-center space-x-2">
+                                            <h3 className="font-medium">{race.name}</h3>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8"
+                                              onClick={() => handleStartEditing(race)}
+                                            >
+                                              <Pencil className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                          <div className="text-sm text-muted-foreground">
+                                            {format(new Date(race.race_time), "HH:mm")}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                    <Select
+                                      value={race.selected_horse_id || ""}
+                                      onValueChange={(value) => handleHorseSelection(race.id, value)}
+                                      disabled={day.selections_submitted}
+                                    >
+                                      <SelectTrigger 
+                                        className={cn(
+                                          "w-[200px]",
+                                          race.selected_horse_id && "border-green-500"
+                                        )}
+                                      >
+                                        <SelectValue placeholder="Select a horse" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {race.horses?.map((horse) => (
+                                          <SelectItem key={horse.id} value={horse.id}>
+                                            <div className="flex items-center w-full gap-2">
+                                              <span className="flex-grow">{horse.name}</span>
+                                              <span className="text-sm">
+                                                {toFractionalOdds(horse.fixed_odds)}
+                                              </span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                {editingRaceId === race.id && editingValues && (
+                                  <div className="border-t pt-4 mt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-medium">Horses</h4>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleAddHorse}
+                                        className="mb-4"
+                                      >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Horse
+                                      </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {editingValues.horses.map((horse, index) => (
+                                        <div
+                                          key={horse.id}
+                                          className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
+                                        >
+                                          <div className="flex-1 mr-4">
+                                            <div className="flex items-center gap-4">
+                                              <div className="flex-1">
                                                 <Input
-                                                  type="number"
-                                                  value={horse.fixed_odds}
+                                                  value={horse.name}
                                                   onChange={(e) =>
-                                                    handleHorseFieldChange(
-                                                      horse.id,
-                                                      'fixed_odds',
-                                                      parseFloat(e.target.value)
-                                                    )
+                                                    handleHorseFieldChange(horse.id, 'name', e.target.value)
                                                   }
-                                                  className="mt-1"
-                                                  placeholder="Fixed Odds"
+                                                  className="mb-2"
+                                                  placeholder="Horse Name"
                                                 />
-                                              </div>
-                                              <div>
-                                                <Label>Points if Wins</Label>
-                                                <Input
-                                                  type="number"
-                                                  value={horse.points_if_wins}
-                                                  onChange={(e) =>
-                                                    handleHorseFieldChange(
-                                                      horse.id,
-                                                      'points_if_wins',
-                                                      parseFloat(e.target.value)
-                                                    )
-                                                  }
-                                                  className="mt-1"
-                                                  placeholder="Points if Wins"
-                                                />
-                                              </div>
-                                              <div>
-                                                <Label>Points if Places</Label>
-                                                <Input
-                                                  type="number"
-                                                  value={horse.points_if_places}
-                                                  onChange={(e) =>
-                                                    handleHorseFieldChange(
-                                                      horse.id,
-                                                      'points_if_places',
-                                                      parseFloat(e.target.value)
-                                                    )
-                                                  }
-                                                  className="mt-1"
-                                                  placeholder="Points if Places"
-                                                />
+                                                <div className="grid grid-cols-3 gap-4">
+                                                  <div>
+                                                    <Label>Fixed Odds</Label>
+                                                    <Input
+                                                      type="number"
+                                                      value={horse.fixed_odds}
+                                                      onChange={(e) =>
+                                                        handleHorseFieldChange(
+                                                          horse.id,
+                                                          'fixed_odds',
+                                                          parseFloat(e.target.value)
+                                                        )
+                                                      }
+                                                      className="mt-1"
+                                                      placeholder="Fixed Odds"
+                                                    />
+                                                  </div>
+                                                  <div>
+                                                    <Label>Points if Wins</Label>
+                                                    <Input
+                                                      type="number"
+                                                      value={horse.points_if_wins}
+                                                      onChange={(e) =>
+                                                        handleHorseFieldChange(
+                                                          horse.id,
+                                                          'points_if_wins',
+                                                          parseFloat(e.target.value)
+                                                        )
+                                                      }
+                                                      className="mt-1"
+                                                      placeholder="Points if Wins"
+                                                    />
+                                                  </div>
+                                                  <div>
+                                                    <Label>Points if Places</Label>
+                                                    <Input
+                                                      type="number"
+                                                      value={horse.points_if_places}
+                                                      onChange={(e) =>
+                                                        handleHorseFieldChange(
+                                                          horse.id,
+                                                          'points_if_places',
+                                                          parseFloat(e.target.value)
+                                                        )
+                                                      }
+                                                      className="mt-1"
+                                                      placeholder="Points if Places"
+                                                    />
+                                                  </div>
+                                                </div>
                                               </div>
                                             </div>
                                           </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleDeleteHorse(horse.id)}
+                                            className="h-8 w-8 flex-shrink-0"
+                                          >
+                                            <X className="h-4 w-4" />
+                                          </Button>
                                         </div>
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDeleteHorse(horse.id)}
-                                        className="h-8 w-8 flex-shrink-0"
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
+                                  </div>
+                                )}
+                              </Card>
+                            ))}
+
+                            {!day.selections_submitted && (
+                              <div className="flex justify-end mt-6">
+                                <Button 
+                                  onClick={handleSubmitSelections} 
+                                  disabled={isSubmitting || !day.races.every(race => race.selected_horse_id)}
+                                >
+                                  {isSubmitting ? "Submitting..." : "Submit Selections"}
+                                </Button>
                               </div>
                             )}
-                          </Card>
-                        ))}
-
-                        {!day.selections_submitted && (
-                          <div className="flex justify-end mt-6">
-                            <Button 
-                              onClick={handleSubmitSelections} 
-                              disabled={isSubmitting || !day.races.every(race => race.selected_horse_id)}
-                            >
-                              {isSubmitting ? "Submitting..." : "Submit Selections"}
-                            </Button>
+                          </div>
+                        ) : (
+                          <div className="bg-muted/50 rounded-lg p-8 text-center">
+                            <p>No races available for {day.name}</p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              {day.selections_submitted 
+                                ? "Selections have already been submitted for this day"
+                                : "Races will be displayed here once available"}
+                            </p>
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="bg-muted/50 rounded-lg p-8 text-center">
-                        <p>No races available for {day.name}</p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {day.selections_submitted 
-                            ? "Selections have already been submitted for this day"
-                            : "Races will be displayed here once available"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stable" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <h2 className="text-xl font-semibold">My Stable</h2>
+                <p className="text-sm text-muted-foreground">View all your selected horses and their performance</p>
+              </CardHeader>
+              <CardContent>
+                {/* My Stable content will go here */}
+                <div className="text-muted-foreground">Coming soon...</div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="leaderboard" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <h2 className="text-xl font-semibold">League Table</h2>
+                <p className="text-sm text-muted-foreground">See how you rank against other players</p>
+              </CardHeader>
+              <CardContent>
+                {/* League Table content will go here */}
+                <div className="text-muted-foreground">Coming soon...</div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AuthLayout>
   );
