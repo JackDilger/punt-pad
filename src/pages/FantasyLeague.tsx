@@ -8,8 +8,16 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Collapsible,
   CollapsibleContent,
@@ -90,7 +98,7 @@ const toFractionalOdds = (decimal: number | null): string => {
   };
   
   // Find the closest match
-  let closest = Object.entries(odds).reduce((prev, [key, value]) => {
+  const closest = Object.entries(odds).reduce((prev, [key, value]) => {
     const prevDiff = Math.abs(parseFloat(prev[0]) - decimal);
     const currDiff = Math.abs(parseFloat(key) - decimal);
     return currDiff < prevDiff ? [key, value] : prev;
@@ -112,6 +120,7 @@ export default function FantasyLeague() {
     horses: Horse[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   useEffect(() => {
     fetchFestivalDays();
@@ -261,11 +270,17 @@ export default function FantasyLeague() {
 
       // Update festival days state
       setFestivalDays(days => days.map(day => {
-        if (!day.races.some(r => r.id === raceId)) return day;
-        return {
-          ...day,
-          races: day.races.map(r => r.id === raceId ? race : r)
-        };
+        if (day.id === currentDay.id) {
+          return {
+            ...day,
+            races: day.races.map(r => 
+              r.id === raceId 
+                ? race 
+                : r
+            )
+          };
+        }
+        return day;
       }));
     } catch (error) {
       console.error('Error updating selection:', error);
@@ -496,6 +511,82 @@ export default function FantasyLeague() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Fantasy League</h1>
+          <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <HelpCircle className="h-4 w-4" />
+                Rules & Points
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Fantasy League Rules & Points</DialogTitle>
+                <DialogDescription>
+                  Learn how the Fantasy League works and how points are awarded
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div>
+                  <h3 className="font-medium mb-2">How it Works</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Select one horse from each race throughout the festival</li>
+                    <li>Points are awarded for both wins and places</li>
+                    <li>Points available vary based on the horse's odds</li>
+                    <li>Make your selections before the cutoff time each day</li>
+                    <li>The player with the most points at the end of the festival wins</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Points System</h3>
+                  <div className="relative overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left p-2">Odds</th>
+                          <th className="text-left p-2">Win Points</th>
+                          <th className="text-left p-2">Place Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 2/1</td>
+                          <td className="p-2">15</td>
+                          <td className="p-2">5</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 4/1</td>
+                          <td className="p-2">20</td>
+                          <td className="p-2">7</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 8/1</td>
+                          <td className="p-2">25</td>
+                          <td className="p-2">10</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2">Over 8/1</td>
+                          <td className="p-2">30</td>
+                          <td className="p-2">12</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Additional Rules</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Selections must be made before each day's cutoff time</li>
+                    <li>Once submitted, selections cannot be changed</li>
+                    <li>Points are awarded based on official race results</li>
+                    <li>In case of a dead heat, points will be split accordingly</li>
+                    <li>Non-runners will receive 0 points</li>
+                  </ul>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
