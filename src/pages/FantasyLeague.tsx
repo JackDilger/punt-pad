@@ -29,14 +29,21 @@ interface Race {
 
 interface Horse {
   id: string;
-  name: string;
-  fixed_odds: number;
-  points_if_wins: number;
+  name: string | null;
+  fixed_odds: number | null;
+  points_if_wins: number | null;
 }
 
 interface Selection {
   raceId: string;
   horseId: string;
+}
+
+interface EditedHorse {
+  id: string;
+  name: string | null;
+  fixed_odds: number | null;
+  points_if_wins: number | null;
 }
 
 export default function FantasyLeague() {
@@ -46,6 +53,8 @@ export default function FantasyLeague() {
   const [selections, setSelections] = useState<Selection[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
+  const [editedHorses, setEditedHorses] = useState<Record<string, EditedHorse>>({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchFestivalDays = async () => {
@@ -119,16 +128,167 @@ export default function FantasyLeague() {
     return selections.find(s => s.raceId === raceId)?.horseId || "";
   };
 
+  const handleHorseChange = (horseId: string, field: keyof EditedHorse, value: string | number | null) => {
+    setEditedHorses(prev => ({
+      ...prev,
+      [horseId]: {
+        ...prev[horseId] || { id: horseId },
+        [field]: value === '' ? null : value
+      } as EditedHorse
+    }));
+  };
+
   const handleAddHorse = async (raceId: string) => {
-    // TODO: Implement horse addition
+    try {
+      setSaving(true);
+      const { data, error } = await supabase
+        .from('fantasy_horses')
+        .insert({
+          race_id: raceId,
+          name: null,
+          fixed_odds: null,
+          points_if_wins: null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
+
+      // Update local state
+      setRaces(prev => prev.map(race => {
+        if (race.id === raceId) {
+          return {
+            ...race,
+            horses: [...race.horses, data]
+          };
+        }
+        return race;
+      }));
+
+      // Start editing the new horse
+      setEditedHorses(prev => ({
+        ...prev,
+        [data.id]: {
+          id: data.id,
+          name: null,
+          fixed_odds: null,
+          points_if_wins: null
+        }
+      }));
+    } catch (error) {
+      console.error('Error adding horse:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleRemoveHorse = async (raceId: string, horseId: string) => {
-    // TODO: Implement horse removal
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('fantasy_horses')
+        .delete()
+        .eq('id', horseId);
+
+      if (error) throw error;
+
+      // Update local state
+      setRaces(prev => prev.map(race => {
+        if (race.id === raceId) {
+          return {
+            ...race,
+            horses: race.horses.filter(h => h.id !== horseId)
+          };
+        }
+        return race;
+      }));
+
+      // Remove from edited horses if present
+      setEditedHorses(prev => {
+        const { [horseId]: removed, ...rest } = prev;
+        return rest;
+      });
+    } catch (error) {
+      console.error('Error removing horse:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleUpdateRace = async (raceId: string) => {
-    // TODO: Implement race update
+    try {
+      setSaving(true);
+      const race = races.find(r => r.id === raceId);
+      if (!race) return;
+
+      // Get the edited values from the form
+      const nameInput = document.getElementById(`race-name-${raceId}`) as HTMLInputElement;
+      const timeInput = document.getElementById(`race-time-${raceId}`) as HTMLInputElement;
+      
+      if (!nameInput || !timeInput) return;
+
+      // Parse the time input (HH:mm) and combine with the existing date
+      const currentDate = new Date(race.race_time);
+      const [hours, minutes] = timeInput.value.split(':');
+      currentDate.setHours(parseInt(hours, 10));
+      currentDate.setMinutes(parseInt(minutes, 10));
+
+      // Update race details
+      const { error: raceError } = await supabase
+        .from('fantasy_races')
+        .update({
+          name: nameInput.value,
+          race_time: currentDate.toISOString()
+        })
+        .eq('id', raceId);
+
+      if (raceError) throw raceError;
+
+      // Update any edited horses
+      const horseUpdates = race.horses
+        .map(horse => ({
+          id: horse.id,
+          name: editedHorses[horse.id]?.name ?? horse.name,
+          fixed_odds: editedHorses[horse.id]?.fixed_odds ?? horse.fixed_odds,
+          points_if_wins: editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins
+        }))
+        .filter(horse => editedHorses[horse.id]); // Only update edited horses
+
+      if (horseUpdates.length > 0) {
+        for (const horse of horseUpdates) {
+          const { error: horseError } = await supabase
+            .from('fantasy_horses')
+            .update(horse)
+            .eq('id', horse.id);
+
+          if (horseError) throw horseError;
+        }
+      }
+
+      // Refresh the races data
+      const { data: updatedRace, error: fetchError } = await supabase
+        .from('fantasy_races')
+        .select(`
+          *,
+          horses: fantasy_horses (*)
+        `)
+        .eq('id', raceId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update local state
+      setRaces(prev => prev.map(r => r.id === raceId ? updatedRace : r));
+      setEditedHorses({});
+      setEditingRaceId(null);
+    } catch (error) {
+      console.error('Error updating race:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -269,26 +429,36 @@ export default function FantasyLeague() {
                                       <div key={horse.id} className="flex items-center justify-between bg-muted/50 p-2 rounded">
                                         <div>
                                           <Input
-                                            defaultValue={horse.name}
+                                            value={editedHorses[horse.id]?.name ?? horse.name ?? ''}
+                                            onChange={(e) => handleHorseChange(horse.id, 'name', e.target.value)}
                                             className="w-[200px]"
+                                            placeholder="Enter horse name"
                                           />
                                         </div>
                                         <div className="flex items-center space-x-2">
                                           <Input
                                             type="number"
-                                            defaultValue={horse.fixed_odds}
+                                            value={editedHorses[horse.id]?.fixed_odds ?? horse.fixed_odds ?? ''}
+                                            onChange={(e) => handleHorseChange(horse.id, 'fixed_odds', e.target.value ? parseFloat(e.target.value) : null)}
                                             className="w-[100px]"
+                                            step="0.01"
+                                            min="1"
+                                            placeholder="e.g. 2.50"
                                           />
                                           <Input
                                             type="number"
-                                            defaultValue={horse.points_if_wins}
+                                            value={editedHorses[horse.id]?.points_if_wins ?? horse.points_if_wins ?? ''}
+                                            onChange={(e) => handleHorseChange(horse.id, 'points_if_wins', e.target.value ? parseInt(e.target.value) : null)}
                                             className="w-[100px]"
+                                            min="1"
+                                            placeholder="e.g. 15"
                                           />
                                           <Button
                                             variant="destructive"
                                             size="icon"
                                             className="h-8 w-8"
                                             onClick={() => handleRemoveHorse(race.id, horse.id)}
+                                            disabled={saving}
                                           >
                                             <TrashIcon className="h-4 w-4" />
                                           </Button>
@@ -300,6 +470,7 @@ export default function FantasyLeague() {
                                       size="sm"
                                       className="w-full"
                                       onClick={() => handleAddHorse(race.id)}
+                                      disabled={saving}
                                     >
                                       <PlusIcon className="h-4 w-4 mr-2" />
                                       Add Horse

@@ -14,11 +14,13 @@ CREATE TABLE fantasy_races (
 CREATE TABLE fantasy_horses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     race_id UUID NOT NULL REFERENCES fantasy_races(id),
-    name TEXT NOT NULL,
-    fixed_odds DECIMAL(10,2) NOT NULL,
-    points_if_wins INTEGER NOT NULL,
+    name TEXT,
+    fixed_odds DECIMAL(10,2),
+    points_if_wins INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT valid_odds CHECK (fixed_odds IS NULL OR fixed_odds >= 1),
+    CONSTRAINT valid_points CHECK (points_if_wins IS NULL OR points_if_wins >= 1)
 );
 
 -- Add indexes for common queries
