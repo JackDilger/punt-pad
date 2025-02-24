@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil, HelpCircle } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Database } from '@/integrations/supabase/types';
 import { ChevronDown } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FestivalDay {
   id: string;
@@ -50,6 +52,7 @@ interface Race {
   updated_at: string;
   horses: Horse[];
   selected_horse_id?: string;
+  chip?: 'superBoost' | 'doubleChance' | 'tripleThreat';
 }
 
 interface Horse {
@@ -72,6 +75,17 @@ interface Selection {
   day_id: string;
   created_at: string;
   submitted_at: string | null;
+  chip?: 'superBoost' | 'doubleChance' | 'tripleThreat';
+}
+
+type ChipType = 'superBoost' | 'doubleChance' | 'tripleThreat';
+
+interface Chip {
+  id: ChipType;
+  name: string;
+  description: string;
+  icon: typeof Rocket | typeof Target | typeof Scale;
+  used: boolean;
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -121,6 +135,34 @@ export default function FantasyLeague() {
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [activeChip, setActiveChip] = useState<ChipType | null>(null);
+  const [chipModalOpen, setChipModalOpen] = useState(false);
+  const [selectedChip, setSelectedChip] = useState<ChipType | null>(null);
+  const [chips, setChips] = useState<Chip[]>([
+    {
+      id: 'superBoost',
+      name: 'Super Boost',
+      description: 'Double your points for this selection',
+      icon: Rocket,
+      used: false
+    },
+    {
+      id: 'doubleChance',
+      name: 'Double Chance',
+      description: 'Get points if your horse finishes first or second',
+      icon: Target,
+      used: false
+    },
+    {
+      id: 'tripleThreat',
+      name: 'Triple Threat',
+      description: 'Triple your points for this selection',
+      icon: Scale,
+      used: false
+    }
+  ]);
+  const [selections, setSelections] = useState<Selection[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchFestivalDays();
@@ -179,7 +221,8 @@ export default function FantasyLeague() {
           .map(race => ({
             ...race,
             horses: race.horses || [],
-            selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id
+            selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id,
+            chip: selections.find(s => s.race_id === race.id)?.chip
           }));
 
         return {
@@ -195,6 +238,7 @@ export default function FantasyLeague() {
       if (days.length > 0) {
         setSelectedDay(days[0].id);
       }
+      setSelections(selections);
     } catch (error) {
       console.error("Error fetching festival days:", error);
     } finally {
@@ -206,85 +250,54 @@ export default function FantasyLeague() {
     setSelectedDay(value);
   };
 
-  const handleHorseSelection = async (raceId: string, horseId: string) => {
-    try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) return;
+  const handleHorseSelect = async (raceId: string, horseId: string) => {
+    if (!selectedDay) return;
 
-      const currentDay = festivalDays.find(day => 
-        day.races.some(race => race.id === raceId)
+    if (activeChip) {
+      // Apply chip to the selection
+      const updatedSelections = selections.map(s => 
+        s.race_id === raceId ? { ...s, horse_id: horseId, chip: activeChip } : s
       );
-      if (!currentDay) return;
+      setSelections(updatedSelections);
 
-      // Check if a selection already exists
-      const { data: existingSelection } = await supabase
-        .from('fantasy_selections')
-        .select()
-        .eq('user_id', userId)
-        .eq('race_id', raceId)
-        .single();
+      // Update race in festival days to show chip
+      setFestivalDays(days => days.map(day => ({
+        ...day,
+        races: day.races.map(race => 
+          race.id === raceId 
+            ? { ...race, selected_horse_id: horseId, chip: activeChip }
+            : race
+        )
+      })));
 
-      if (existingSelection) {
-        // Update existing selection
-        const { error: updateError } = await supabase
-          .from('fantasy_selections')
-          .update({ horse_id: horseId } satisfies Database['public']['Tables']['fantasy_selections']['Update'])
-          .eq('id', existingSelection.id);
-
-        if (updateError) throw updateError;
-      } else {
-        // Create new selection
-        const { error: insertError } = await supabase
-          .from('fantasy_selections')
-          .insert({
-            user_id: userId,
-            horse_id: horseId,
-            race_id: raceId,
-            day_id: currentDay.id
-          } satisfies Database['public']['Tables']['fantasy_selections']['Insert']);
-
-        if (insertError) throw insertError;
-      }
-
-      // Get race details
-      const { data: raceData, error: raceError } = await supabase
-        .from('fantasy_races')
-        .select(`
-          *,
-          horses:fantasy_horses(*)
-        `)
-        .eq('id', raceId)
-        .single();
-
-      if (raceError) {
-        console.error("Error fetching race:", raceError);
-        throw raceError;
-      }
-
-      // Add horses to race
-      const race = {
-        ...raceData,
-        horses: raceData.horses || [],
-        selected_horse_id: horseId
-      } as Race;
-
-      // Update festival days state
-      setFestivalDays(days => days.map(day => {
-        if (day.id === currentDay.id) {
-          return {
-            ...day,
-            races: day.races.map(r => 
-              r.id === raceId 
-                ? race 
-                : r
-            )
-          };
-        }
-        return day;
-      }));
-    } catch (error) {
-      console.error('Error updating selection:', error);
+      // Mark chip as used and reset active chip
+      setChips(prevChips => prevChips.map(c => 
+        c.id === activeChip ? { ...c, used: true } : c
+      ));
+      setActiveChip(null);
+      
+      toast({
+        title: "Chip Applied",
+        description: `${chips.find(c => c.id === activeChip)?.name} has been applied to your selection.`,
+      });
+      return;
     }
+
+    // Regular selection handling
+    const updatedSelections = selections.map(s => 
+      s.race_id === raceId ? { ...s, horse_id: horseId } : s
+    );
+    setSelections(updatedSelections);
+
+    // Update race in festival days
+    setFestivalDays(days => days.map(day => ({
+      ...day,
+      races: day.races.map(race => 
+        race.id === raceId 
+          ? { ...race, selected_horse_id: horseId }
+          : race
+      )
+    })));
   };
 
   const handleSubmitSelections = async () => {
@@ -513,12 +526,16 @@ export default function FantasyLeague() {
           <h1 className="text-2xl font-bold">Fantasy League</h1>
           <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 bg-background border-input hover:bg-accent hover:text-accent-foreground"
+              >
                 <HelpCircle className="h-4 w-4" />
                 Rules & Points
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>Fantasy League Rules & Points</DialogTitle>
                 <DialogDescription>
@@ -588,6 +605,70 @@ export default function FantasyLeague() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <Card className="border-muted bg-muted/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="mx-auto text-center">
+                <h3 className="text-sm font-medium">Power-Up Chips</h3>
+                <p className="text-sm text-muted-foreground">
+                  Enhance your selections with special chips
+                </p>
+              </div>
+              {activeChip && (
+                <div className="absolute right-4 flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Click any selection to apply</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveChip(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center gap-6">
+              <TooltipProvider>
+                {chips.map((chip) => (
+                  <Tooltip key={chip.id}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "relative flex flex-col items-center gap-2 h-auto py-3 px-6 rounded-xl border-dashed min-w-[120px] bg-background border-input",
+                          chip.used && "opacity-50 cursor-not-allowed",
+                          activeChip === chip.id && "border-solid bg-accent text-accent-foreground",
+                          !chip.used && !activeChip && "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        onClick={() => {
+                          if (!chip.used) {
+                            setSelectedChip(chip.id);
+                            setChipModalOpen(true);
+                          }
+                        }}
+                        disabled={chip.used}
+                      >
+                        <chip.icon className="h-6 w-6" />
+                        <span className="text-sm font-medium">{chip.name}</span>
+                        {chip.used && (
+                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-xl">
+                            <X className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[200px]">
+                      <p className="text-xs text-muted-foreground">{chip.description}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
@@ -664,202 +745,176 @@ export default function FantasyLeague() {
                               </div>
                             )}
 
-                            {day.races.map((race) => (
-                              <Card key={race.id} className="p-4">
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                      {editingRaceId === race.id && editingValues ? (
-                                        <div className="space-y-2">
-                                          <div>
-                                            <Label htmlFor={`race-name-${race.id}`}>Race Name</Label>
-                                            <Input
-                                              id={`race-name-${race.id}`}
-                                              value={editingValues.name}
-                                              onChange={(e) => setEditingValues({
-                                                ...editingValues,
-                                                name: e.target.value
-                                              })}
-                                              className="w-[300px]"
-                                            />
-                                          </div>
-                                          <div>
-                                            <Label htmlFor={`race-time-${race.id}`}>Race Time</Label>
-                                            <Input
-                                              id={`race-time-${race.id}`}
-                                              type="time"
-                                              value={editingValues.time}
-                                              onChange={(e) => setEditingValues({
-                                                ...editingValues,
-                                                time: e.target.value
-                                              })}
-                                              className="w-[200px]"
-                                            />
-                                          </div>
-                                          <div className="flex space-x-2">
-                                            <Button 
-                                              variant="secondary" 
-                                              size="sm"
-                                              onClick={handleCancelEditing}
-                                            >
-                                              Cancel
-                                            </Button>
-                                            <Button 
-                                              size="sm"
-                                              onClick={() => handleUpdateRace(race.id)}
-                                              disabled={saving}
-                                            >
-                                              Save Changes
-                                            </Button>
-                                          </div>
+                            {day.races.map((race) => {
+                              const selection = festivalDays.find(d => d.id === selectedDay)?.races.find(r => r.id === race.id);
+                              const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
+
+                              return (
+                                <Card 
+                                  key={race.id} 
+                                  className={cn(
+                                    "relative",
+                                    activeChip && "cursor-pointer hover:shadow-md transition-shadow",
+                                    selection?.chip && "border-primary/50"
+                                  )}
+                                  onClick={() => {
+                                    if (activeChip && !selection?.chip) {
+                                      const defaultHorse = race.horses[0];
+                                      if (defaultHorse) {
+                                        handleHorseSelect(race.id, defaultHorse.id);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  {selection?.chip && (
+                                    <div className="absolute top-2 right-2">
+                                      {chips.find(c => c.id === selection.chip)?.icon && (
+                                        <div className="p-1 rounded-full bg-primary/10">
+                                          {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
+                                            className: "h-4 w-4 text-primary"
+                                          })}
                                         </div>
-                                      ) : (
-                                        <>
-                                          <div className="flex items-center space-x-2">
-                                            <h3 className="font-medium">{race.name}</h3>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-8 w-8"
-                                              onClick={() => handleStartEditing(race)}
-                                            >
-                                              <Pencil className="h-4 w-4" />
-                                            </Button>
-                                          </div>
-                                          <div className="text-sm text-muted-foreground">
-                                            {format(new Date(race.race_time), "HH:mm")}
-                                          </div>
-                                        </>
                                       )}
                                     </div>
-                                    <Select
-                                      value={race.selected_horse_id || ""}
-                                      onValueChange={(value) => handleHorseSelection(race.id, value)}
-                                      disabled={day.selections_submitted}
-                                    >
-                                      <SelectTrigger 
-                                        className={cn(
-                                          "w-[200px]",
-                                          race.selected_horse_id && "border-green-500"
-                                        )}
+                                  )}
+                                  <CardHeader className="pb-2">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <h3 className="font-medium">{race.name}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(race.race_time), "HH:mm")}
+                                        </p>
+                                      </div>
+                                      <Select
+                                        value={race.selected_horse_id || ""}
+                                        onValueChange={(value) => handleHorseSelect(race.id, value)}
+                                        disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
                                       >
-                                        <SelectValue placeholder="Select a horse" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {race.horses?.map((horse) => (
-                                          <SelectItem key={horse.id} value={horse.id}>
-                                            <div className="flex items-center w-full gap-2">
-                                              <span className="flex-grow">{horse.name}</span>
-                                              <span className="text-sm">
-                                                {toFractionalOdds(horse.fixed_odds)}
-                                              </span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-
-                                {editingRaceId === race.id && editingValues && (
-                                  <div className="border-t pt-4 mt-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <h4 className="font-medium">Horses</h4>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleAddHorse}
-                                        className="mb-4"
-                                      >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Horse
-                                      </Button>
-                                    </div>
-                                    <div className="space-y-2">
-                                      {editingValues.horses.map((horse, index) => (
-                                        <div
-                                          key={horse.id}
-                                          className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
+                                        <SelectTrigger 
+                                          className={cn(
+                                            "w-[200px]",
+                                            race.selected_horse_id && "border-green-500"
+                                          )}
                                         >
-                                          <div className="flex-1 mr-4">
-                                            <div className="flex items-center gap-4">
-                                              <div className="flex-1">
-                                                <Input
-                                                  value={horse.name}
-                                                  onChange={(e) =>
-                                                    handleHorseFieldChange(horse.id, 'name', e.target.value)
-                                                  }
-                                                  className="mb-2"
-                                                  placeholder="Horse Name"
-                                                />
-                                                <div className="grid grid-cols-3 gap-4">
-                                                  <div>
-                                                    <Label>Fixed Odds</Label>
+                                          <SelectValue placeholder="Select a horse" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {race.horses?.map((horse) => (
+                                            <SelectItem key={horse.id} value={horse.id}>
+                                              <div className="flex items-center w-full gap-2">
+                                                <span className="flex-grow">{horse.name}</span>
+                                                <span className="text-sm">
+                                                  {toFractionalOdds(horse.fixed_odds)}
+                                                </span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent>
+                                    {editingRaceId === race.id && editingValues && (
+                                      <div className="border-t pt-4 mt-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <h4 className="font-medium">Horses</h4>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAddHorse}
+                                            className="mb-4"
+                                          >
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Horse
+                                          </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                          {editingValues.horses.map((horse, index) => (
+                                            <div
+                                              key={horse.id}
+                                              className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
+                                            >
+                                              <div className="flex-1 mr-4">
+                                                <div className="flex items-center gap-4">
+                                                  <div className="flex-1">
                                                     <Input
-                                                      type="number"
-                                                      value={horse.fixed_odds}
+                                                      value={horse.name}
                                                       onChange={(e) =>
-                                                        handleHorseFieldChange(
-                                                          horse.id,
-                                                          'fixed_odds',
-                                                          parseFloat(e.target.value)
-                                                        )
+                                                        handleHorseFieldChange(horse.id, 'name', e.target.value)
                                                       }
-                                                      className="mt-1"
-                                                      placeholder="Fixed Odds"
+                                                      className="mb-2"
+                                                      placeholder="Horse Name"
                                                     />
-                                                  </div>
-                                                  <div>
-                                                    <Label>Points if Wins</Label>
-                                                    <Input
-                                                      type="number"
-                                                      value={horse.points_if_wins}
-                                                      onChange={(e) =>
-                                                        handleHorseFieldChange(
-                                                          horse.id,
-                                                          'points_if_wins',
-                                                          parseFloat(e.target.value)
-                                                        )
-                                                      }
-                                                      className="mt-1"
-                                                      placeholder="Points if Wins"
-                                                    />
-                                                  </div>
-                                                  <div>
-                                                    <Label>Points if Places</Label>
-                                                    <Input
-                                                      type="number"
-                                                      value={horse.points_if_places}
-                                                      onChange={(e) =>
-                                                        handleHorseFieldChange(
-                                                          horse.id,
-                                                          'points_if_places',
-                                                          parseFloat(e.target.value)
-                                                        )
-                                                      }
-                                                      className="mt-1"
-                                                      placeholder="Points if Places"
-                                                    />
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                      <div>
+                                                        <Label>Fixed Odds</Label>
+                                                        <Input
+                                                          type="number"
+                                                          value={horse.fixed_odds}
+                                                          onChange={(e) =>
+                                                            handleHorseFieldChange(
+                                                              horse.id,
+                                                              'fixed_odds',
+                                                              parseFloat(e.target.value)
+                                                            )
+                                                          }
+                                                          className="mt-1"
+                                                          placeholder="Fixed Odds"
+                                                        />
+                                                      </div>
+                                                      <div>
+                                                        <Label>Points if Wins</Label>
+                                                        <Input
+                                                          type="number"
+                                                          value={horse.points_if_wins}
+                                                          onChange={(e) =>
+                                                            handleHorseFieldChange(
+                                                              horse.id,
+                                                              'points_if_wins',
+                                                              parseFloat(e.target.value)
+                                                            )
+                                                          }
+                                                          className="mt-1"
+                                                          placeholder="Points if Wins"
+                                                        />
+                                                      </div>
+                                                      <div>
+                                                        <Label>Points if Places</Label>
+                                                        <Input
+                                                          type="number"
+                                                          value={horse.points_if_places}
+                                                          onChange={(e) =>
+                                                            handleHorseFieldChange(
+                                                              horse.id,
+                                                              'points_if_places',
+                                                              parseFloat(e.target.value)
+                                                            )
+                                                          }
+                                                          className="mt-1"
+                                                          placeholder="Points if Places"
+                                                        />
+                                                      </div>
+                                                    </div>
                                                   </div>
                                                 </div>
                                               </div>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDeleteHorse(horse.id)}
+                                                className="h-8 w-8 flex-shrink-0"
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </Button>
                                             </div>
-                                          </div>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleDeleteHorse(horse.id)}
-                                            className="h-8 w-8 flex-shrink-0"
-                                          >
-                                            <X className="h-4 w-4" />
-                                          </Button>
+                                          ))}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </Card>
-                            ))}
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
 
                             {!day.selections_submitted && (
                               <div className="flex justify-end mt-6">
