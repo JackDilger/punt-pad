@@ -17,6 +17,7 @@ CREATE TABLE fantasy_horses (
     name TEXT,
     fixed_odds DECIMAL(10,2),
     points_if_wins INTEGER,
+    points_if_places INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT valid_odds CHECK (fixed_odds IS NULL OR fixed_odds >= 1),
@@ -104,7 +105,7 @@ FROM fantasy_festival_days
 WHERE day_number = 1;
 
 -- Insert sample horses for testing
-INSERT INTO fantasy_horses (race_id, name, fixed_odds, points_if_wins)
+INSERT INTO fantasy_horses (race_id, name, fixed_odds, points_if_wins, points_if_places)
 SELECT 
     r.id,
     'Ballyburn',
@@ -114,11 +115,17 @@ SELECT
         WHEN fixed_odds <= 4.0 THEN 15
         WHEN fixed_odds <= 8.0 THEN 20
         ELSE 25
+    END,
+    CASE 
+        WHEN fixed_odds <= 2.0 THEN 5
+        WHEN fixed_odds <= 4.0 THEN 7
+        WHEN fixed_odds <= 8.0 THEN 10
+        ELSE 12
     END
 FROM fantasy_races r
 WHERE name = 'Supreme Novices Hurdle';
 
-INSERT INTO fantasy_horses (race_id, name, fixed_odds, points_if_wins)
+INSERT INTO fantasy_horses (race_id, name, fixed_odds, points_if_wins, points_if_places)
 SELECT 
     r.id,
     'Mystical Power',
@@ -128,6 +135,12 @@ SELECT
         WHEN fixed_odds <= 4.0 THEN 15
         WHEN fixed_odds <= 8.0 THEN 20
         ELSE 25
+    END,
+    CASE 
+        WHEN fixed_odds <= 2.0 THEN 5
+        WHEN fixed_odds <= 4.0 THEN 7
+        WHEN fixed_odds <= 8.0 THEN 10
+        ELSE 12
     END
 FROM fantasy_races r
 WHERE name = 'Supreme Novices Hurdle';
