@@ -722,6 +722,8 @@ export default function FantasyLeague() {
               Cancel
             </Button>
             <Button
+              variant="default"
+              className="text-white bg-primary hover:bg-primary/90"
               onClick={handleSubmitSelections}
               disabled={!canSubmit || isSubmitting}
             >
@@ -749,6 +751,8 @@ export default function FantasyLeague() {
           </div>
           
           <Button
+            variant="default"
+            className="bg-primary hover:bg-primary/90 text-white"
             onClick={() => setSubmissionDialogOpen(true)}
             disabled={day.selections_submitted}
           >
