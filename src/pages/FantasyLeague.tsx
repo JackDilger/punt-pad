@@ -625,6 +625,90 @@ export default function FantasyLeague() {
           </Dialog>
         </div>
 
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Fantasy League</h1>
+          <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 bg-background border-input hover:bg-accent hover:text-accent-foreground"
+              >
+                <HelpCircle className="h-4 w-4" />
+                Rules & Points
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Fantasy League Rules & Points</DialogTitle>
+                <DialogDescription>
+                  Learn how the Fantasy League works and how points are awarded
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div>
+                  <h3 className="font-medium mb-2">How it Works</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Select one horse from each race throughout the festival</li>
+                    <li>Points are awarded for both wins and places</li>
+                    <li>Points available vary based on the horse's odds</li>
+                    <li>Make your selections before the cutoff time each day</li>
+                    <li>The player with the most points at the end of the festival wins</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Points System</h3>
+                  <div className="relative overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left p-2">Odds</th>
+                          <th className="text-left p-2">Win Points</th>
+                          <th className="text-left p-2">Place Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 2/1</td>
+                          <td className="p-2">15</td>
+                          <td className="p-2">5</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 4/1</td>
+                          <td className="p-2">20</td>
+                          <td className="p-2">7</td>
+                        </tr>
+                        <tr className="border-b">
+                          <td className="p-2">Up to 8/1</td>
+                          <td className="p-2">25</td>
+                          <td className="p-2">10</td>
+                        </tr>
+                        <tr>
+                          <td className="p-2">Over 8/1</td>
+                          <td className="p-2">30</td>
+                          <td className="p-2">12</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Additional Rules</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li>Selections must be made before each day's cutoff time</li>
+                    <li>Once submitted, selections cannot be changed</li>
+                    <li>Points are awarded based on official race results</li>
+                    <li>In case of a dead heat, points will be split accordingly</li>
+                    <li>Non-runners will receive 0 points</li>
+                  </ul>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <Card className="border-muted bg-muted/5">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -724,12 +808,10 @@ export default function FantasyLeague() {
                         className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
                       >
                         <div className="flex flex-col items-center py-3 w-full">
-                          <span>{day.name}</span>
-                          {day.selections_submitted && (
-                            <span className="text-xs text-muted-foreground mt-1">
-                              Selections submitted
-                            </span>
-                          )}
+                          <span>{format(new Date(day.date), 'do MMMM yyyy')}</span>
+                          <span className="text-xs text-muted-foreground mt-1">
+                            Selections close at {format(new Date(day.cutoff_time), "HH:mm")}
+                          </span>
                         </div>
                       </TabsTrigger>
                     ))}
@@ -738,14 +820,7 @@ export default function FantasyLeague() {
                   {festivalDays.map((day) => (
                     <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
                       <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                          <h2 className="text-xl font-semibold">{day.name} Races</h2>
-                          {day.date && (
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(day.date), 'do MMMM yyyy')}
-                            </p>
-                          )}
-                        </div>
+                        <h2 className="text-xl font-semibold">{day.name} Races</h2>
 
                         {loading ? (
                           <p>Loading races...</p>
@@ -755,14 +830,7 @@ export default function FantasyLeague() {
                               <div className="bg-green-50 p-4 rounded-md mb-4">
                                 <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
                               </div>
-                            ) : (
-                              <div className="bg-yellow-50 p-4 rounded-md mb-4">
-                                <p className="text-yellow-700">
-                                  Selections close at {format(new Date(day.cutoff_time), "HH:mm")}. 
-                                  Make sure to submit your selections before then.
-                                </p>
-                              </div>
-                            )}
+                            ) : null}
 
                             {day.races.map((race) => {
                               const selection = festivalDays.find(d => d.id === selectedDay)?.races.find(r => r.id === race.id);
