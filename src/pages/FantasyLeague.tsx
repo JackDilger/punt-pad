@@ -578,7 +578,7 @@ export default function FantasyLeague() {
     <AuthLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Fantasy League</h1>
+          <h1 className="text-2xl font-bold">Cheltenham Fantasy League 2025</h1>
           <Button 
             variant="default" 
             onClick={() => setRulesOpen(true)} 
