@@ -20,6 +20,7 @@ import {
 import { Database } from '@/integrations/supabase/types';
 import { ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FestivalDay {
   id: string;
@@ -177,6 +178,7 @@ export default function FantasyLeague() {
   ]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     fetchFestivalDays();
@@ -726,14 +728,16 @@ export default function FantasyLeague() {
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <h3 className="font-medium">{race.name}</h3>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleStartEditing(race)}
-                                            className="h-6 w-6"
-                                          >
-                                            <Pencil className="h-3 w-3" />
-                                          </Button>
+                                          {isAdmin && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() => handleStartEditing(race)}
+                                              className="h-6 w-6"
+                                            >
+                                              <Pencil className="h-3 w-3" />
+                                            </Button>
+                                          )}
                                         </div>
                                         <p className="text-sm text-muted-foreground">
                                           {format(new Date(race.race_time), "HH:mm")}
