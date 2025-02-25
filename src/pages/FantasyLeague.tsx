@@ -1133,9 +1133,9 @@ export default function FantasyLeague() {
                       <div className="flex items-center gap-2">
                         {selection?.chip && (
                           <div className="flex-shrink-0">
-                            {selection.chip === 'superBoost' && <Rocket className="h-4 w-4 text-primary" />}
-                            {selection.chip === 'doubleChance' && <Target className="h-4 w-4 text-primary" />}
-                            {selection.chip === 'tripleThreat' && <Scale className="h-4 w-4 text-primary" />}
+                            {selection.chip === 'superBoost' && <span className="text-sm">🚀</span>}
+                            {selection.chip === 'doubleChance' && <span className="text-sm">🎯</span>}
+                            {selection.chip === 'tripleThreat' && <span className="text-sm">⚖️</span>}
                           </div>
                         )}
                         <Select
