@@ -316,7 +316,7 @@ export const BetEntry = () => {
             </div>
             <Button 
               type="submit"
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               Add Bet
             </Button>
