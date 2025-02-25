@@ -135,9 +135,9 @@ export default function FantasyLeague() {
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [activeChip, setActiveChip] = useState<ChipType | null>(null);
   const [chipModalOpen, setChipModalOpen] = useState(false);
-  const [selectedChip, setSelectedChip] = useState<ChipType | null>(null);
+  const [selectedChip, setSelectedChip] = useState<Chip | null>(null);
+  const [activeChip, setActiveChip] = useState<ChipType | null>(null);
   const [chips, setChips] = useState<Chip[]>([
     {
       id: 'superBoost',
@@ -535,6 +535,15 @@ export default function FantasyLeague() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChipClick = (chipId: ChipType) => {
+    if (chips.find((c) => c.id === chipId)?.used) return;
+    const chip = chips.find((c) => c.id === chipId);
+    if (chip) {
+      setSelectedChip(chip);
+      setChipModalOpen(true);
     }
   };
 
@@ -974,6 +983,27 @@ export default function FantasyLeague() {
           </TabsContent>
         </Tabs>
       </div>
+      <Dialog open={chipModalOpen} onOpenChange={setChipModalOpen}>
+        <DialogContent>
+          <DialogHeader className="text-center">
+            <DialogTitle className="flex items-center justify-center gap-2">
+              {selectedChip?.icon && <selectedChip.icon className="h-5 w-5" />}
+              {selectedChip?.name}
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              {selectedChip?.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <Button onClick={() => {
+              setActiveChip(selectedChip?.id ?? null);
+              setChipModalOpen(false);
+            }}>
+              Activate Chip
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AuthLayout>
   );
 }
