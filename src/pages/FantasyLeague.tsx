@@ -117,7 +117,8 @@ const toFractionalOdds = (decimal: number | null): string => {
 
 export default function FantasyLeague() {
   const [selectedDay, setSelectedDay] = useState<FestivalDay | null>(null);
-  const [selectedSection, setSelectedSection] = useState("selections");
+  const [selectedSection, setSelectedSection] = useState<string>("selections");
+  const [selectedDayTab, setSelectedDayTab] = useState<string | null>(null);
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -180,6 +181,17 @@ export default function FantasyLeague() {
   useEffect(() => {
     fetchFestivalDays();
   }, []);
+
+  useEffect(() => {
+    if (festivalDays.length > 0) {
+      if (!selectedDay) {
+        setSelectedDay(festivalDays[0]);
+      }
+      if (!selectedDayTab) {
+        setSelectedDayTab(festivalDays[0].id);
+      }
+    }
+  }, [festivalDays]);
 
   const fetchFestivalDays = async () => {
     setLoading(true);
@@ -248,9 +260,6 @@ export default function FantasyLeague() {
 
       console.log("Final processed days:", days);
       setFestivalDays(days);
-      if (days.length > 0) {
-        setSelectedDay(days[0]);
-      }
       setSelections(selections);
     } catch (error) {
       console.error("Error fetching festival days:", error);
@@ -650,7 +659,7 @@ export default function FantasyLeague() {
           </Dialog>
         </div>
 
-        <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
+        <Tabs defaultValue={festivalDays[0]?.id} className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger 
               value="selections"
@@ -675,13 +684,14 @@ export default function FantasyLeague() {
           <TabsContent value="selections">
             <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <Tabs defaultValue={selectedDay?.id} onValueChange={handleDayChange}>
-                  <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
+                <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
+                  <TabsList className="w-full">
                     {festivalDays.map((day) => (
                       <TabsTrigger
                         key={day.id}
                         value={day.id}
-                        className="rounded-none data-[state=active]:bg-background"
+                        onClick={() => setSelectedDay(day)}
+                        className="flex-1 rounded-none data-[state=active]:bg-background"
                         disabled={loading}
                       >
                         {day.name}
