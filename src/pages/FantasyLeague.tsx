@@ -84,8 +84,9 @@ interface Chip {
   id: ChipType;
   name: string;
   description: string;
-  icon: typeof Rocket | typeof Target | typeof Scale;
+  howItWorks: string[];
   used: boolean;
+  buttonText: string;
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -122,15 +123,15 @@ const toFractionalOdds = (decimal: number | null): string => {
 };
 
 export default function FantasyLeague() {
-  const [selectedDay, setSelectedDay] = useState<string>("");
+  const [selectedDay, setSelectedDay] = useState<FestivalDay | null>(null);
   const [selectedSection, setSelectedSection] = useState("selections");
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<{
     name: string;
-    time: string;
+    race_time: string;
     horses: Horse[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -141,24 +142,43 @@ export default function FantasyLeague() {
   const [chips, setChips] = useState<Chip[]>([
     {
       id: 'superBoost',
-      name: 'Super Boost',
-      description: 'Double your points for this selection',
-      icon: Rocket,
-      used: false
+      name: '🚀 Super Boost',
+      description: 'Take your points to the moon! Use the Super Boost chip to 10x your points on any single selection. Be strategic—this chip can only be used once during the festival, so choose wisely!',
+      howItWorks: [
+        'Activate the chip by clicking "Play Super Boost".',
+        'Then, select the horse you want to apply it to.',
+        "If your selection wins, you'll receive 10 times the standard points.",
+        'Once played, the chip is locked and cannot be changed.',
+      ],
+      used: false,
+      buttonText: 'Play Super Boost'
     },
     {
       id: 'doubleChance',
-      name: 'Double Chance',
-      description: 'Get points if your horse finishes first or second',
-      icon: Target,
-      used: false
+      name: '🎯 Double Chance',
+      description: 'Improve your odds! The Double Chance chip counts a second-place finish as a win, giving you the full win points even if your horse finishes just behind the leader.',
+      howItWorks: [
+        'Click "Play Double Chance" to activate the chip.',
+        'Choose the race selection you want to apply it to.',
+        'Earn full win points if your selection finishes first or second.',
+        'Once applied, the chip cannot be moved to another selection.',
+      ],
+      used: false,
+      buttonText: 'Play Double Chance'
     },
     {
       id: 'tripleThreat',
-      name: 'Triple Threat',
-      description: 'Triple your points for this selection',
-      icon: Scale,
-      used: false
+      name: '⚖️ Triple Threat',
+      description: 'High risk, high reward! Use the Triple Threat chip to triple your points if your selection wins. However, if your horse loses, you\'ll get minus triple the potential points on offer!',
+      howItWorks: [
+        'Click "Play Triple Threat" to activate the chip.',
+        'Assign the chip to your chosen selection.',
+        'If your selection wins, you earn 3x the points. If it loses, you\'ll incur -3x the points.',
+        'The chip is locked to your selection once played.',
+        'Warning: Use this chip carefully—it can dramatically shift your position on the leaderboard!',
+      ],
+      used: false,
+      buttonText: 'Play Triple Threat'
     }
   ]);
   const [selections, setSelections] = useState<Selection[]>([]);
@@ -236,7 +256,7 @@ export default function FantasyLeague() {
       console.log("Final processed days:", days);
       setFestivalDays(days);
       if (days.length > 0) {
-        setSelectedDay(days[0].id);
+        setSelectedDay(days[0]);
       }
       setSelections(selections);
     } catch (error) {
@@ -246,8 +266,11 @@ export default function FantasyLeague() {
     }
   };
 
-  const handleDayChange = (value: string) => {
-    setSelectedDay(value);
+  const handleDayChange = (dayId: string) => {
+    const day = festivalDays.find((d) => d.id === dayId);
+    if (day) {
+      setSelectedDay(day);
+    }
   };
 
   const handleHorseSelect = async (raceId: string, horseId: string) => {
@@ -303,7 +326,7 @@ export default function FantasyLeague() {
   const handleSubmitSelections = async () => {
     try {
       setIsSubmitting(true);
-      const currentDay = festivalDays.find(day => day.id === selectedDay);
+      const currentDay = festivalDays.find(day => day.id === selectedDay?.id);
       if (!currentDay) return;
 
       const userId = (await supabase.auth.getUser()).data.user?.id;
@@ -345,7 +368,7 @@ export default function FantasyLeague() {
     setEditingRaceId(race.id);
     setEditingValues({
       name: race.name,
-      time: format(new Date(race.race_time), 'HH:mm'),
+      race_time: format(new Date(race.race_time), 'HH:mm'),
       horses: [...race.horses]
     });
   };
@@ -428,7 +451,7 @@ export default function FantasyLeague() {
 
       // Parse the time input (HH:mm) and combine with the existing date
       const currentDate = new Date(race.race_time);
-      const [hours, minutes] = editingValues.time.split(':');
+      const [hours, minutes] = editingValues.race_time.split(':');
       currentDate.setHours(parseInt(hours, 10));
       currentDate.setMinutes(parseInt(minutes, 10));
 
@@ -659,21 +682,16 @@ export default function FantasyLeague() {
           <TabsContent value="selections">
             <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <Tabs defaultValue={selectedDay} onValueChange={handleDayChange}>
+                <Tabs defaultValue={selectedDay?.id} onValueChange={handleDayChange}>
                   <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
                     {festivalDays.map((day) => (
-                      <TabsTrigger 
+                      <TabsTrigger
                         key={day.id}
                         value={day.id}
-                        disabled={false}
-                        className="relative cursor-pointer data-[state=active]:bg-white border-0 px-0 py-0 h-full data-[state=active]:rounded-none data-[state=active]:shadow-none hover:bg-white/50"
+                        className="rounded-none data-[state=active]:bg-background"
+                        disabled={loading}
                       >
-                        <div className="flex flex-col items-center py-3 w-full">
-                          <span>{format(new Date(day.date), 'do MMMM yyyy')}</span>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            Selections close at {format(new Date(day.cutoff_time), "HH:mm")}
-                          </span>
-                        </div>
+                        {day.name}
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -709,7 +727,6 @@ export default function FantasyLeague() {
                               onClick={() => handleChipClick(chip.id)}
                             >
                               <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
-                                <chip.icon className="h-6 w-6" />
                                 <div>
                                   <p className="font-medium">{chip.name}</p>
                                   <p className="text-xs text-muted-foreground">{chip.description}</p>
@@ -730,7 +747,7 @@ export default function FantasyLeague() {
                         ) : day.races.length > 0 ? (
                           <div className="space-y-4">
                             {day.races.map((race) => {
-                              const selection = festivalDays.find(d => d.id === selectedDay)?.races.find(r => r.id === race.id);
+                              const selection = festivalDays.find(d => d.id === selectedDay?.id)?.races.find(r => r.id === race.id);
                               const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
 
                               return (
@@ -752,13 +769,11 @@ export default function FantasyLeague() {
                                 >
                                   {selection?.chip && (
                                     <div className="absolute top-2 right-2">
-                                      {chips.find(c => c.id === selection.chip)?.icon && (
-                                        <div className="p-1 rounded-full bg-primary/10">
-                                          {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
-                                            className: "h-4 w-4 text-primary"
-                                          })}
-                                        </div>
-                                      )}
+                                      {/* <div className="p-1 rounded-full bg-primary/10">
+                                        {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
+                                          className: "h-4 w-4 text-primary"
+                                        })}
+                                      </div> */}
                                     </div>
                                   )}
                                   <CardHeader className="pb-2">
@@ -984,23 +999,38 @@ export default function FantasyLeague() {
         </Tabs>
       </div>
       <Dialog open={chipModalOpen} onOpenChange={setChipModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader className="text-center">
-            <DialogTitle className="flex items-center justify-center gap-2">
-              {selectedChip?.icon && <selectedChip.icon className="h-5 w-5" />}
+            <DialogTitle className="flex items-center justify-center gap-2 text-xl">
               {selectedChip?.name}
             </DialogTitle>
-            <DialogDescription className="text-center">
+            <DialogDescription className="text-center pt-4">
               {selectedChip?.description}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center">
-            <Button onClick={() => {
-              setActiveChip(selectedChip?.id ?? null);
-              setChipModalOpen(false);
-            }}>
-              Activate Chip
-            </Button>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-2">How It Works:</h3>
+              <ul className="list-disc pl-5 space-y-2">
+                {selectedChip?.howItWorks.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground text-center italic">
+              Reminder: You can only play one chip per day.
+            </p>
+            <div className="flex justify-center pt-2">
+              <Button 
+                onClick={() => {
+                  setActiveChip(selectedChip?.id ?? null);
+                  setChipModalOpen(false);
+                }}
+                className="w-full sm:w-auto"
+              >
+                {selectedChip?.buttonText}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
