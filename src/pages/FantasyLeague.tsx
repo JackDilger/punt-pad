@@ -42,6 +42,8 @@ interface Race {
   day_id: string;
   race_order: number;
   status: 'upcoming' | 'in_progress' | 'finished';
+  distance: string | null;
+  number_of_places: number;
   created_at: string;
   updated_at: string;
   horses: Horse[];
@@ -211,7 +213,16 @@ export default function FantasyLeague() {
       const { data: racesData, error: racesError } = await supabase
         .from('fantasy_races')
         .select(`
-          *,
+          id,
+          name,
+          race_time,
+          day_id,
+          race_order,
+          status,
+          distance,
+          number_of_places,
+          created_at,
+          updated_at,
           horses:fantasy_horses(*)
         `)
         .order('race_order');
@@ -220,6 +231,8 @@ export default function FantasyLeague() {
         console.error("Error fetching races:", racesError);
         throw racesError;
       }
+
+      console.log('Races data:', racesData);
 
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {
@@ -521,7 +534,16 @@ export default function FantasyLeague() {
       const { data: updatedRace, error: fetchError } = await supabase
         .from('fantasy_races')
         .select(`
-          *,
+          id,
+          name,
+          race_time,
+          day_id,
+          race_order,
+          status,
+          distance,
+          number_of_places,
+          created_at,
+          updated_at,
           horses:fantasy_horses(*)
         `)
         .eq('id', raceId)
@@ -739,8 +761,16 @@ export default function FantasyLeague() {
                                             </Button>
                                           )}
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                          {format(new Date(race.race_time), "HH:mm")}
+                                        <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                          <span>{format(new Date(race.race_time), "HH:mm")}</span>
+                                          {race.distance && (
+                                            <>
+                                              <span>·</span>
+                                              <span>{race.distance}</span>
+                                            </>
+                                          )}
+                                          <span>·</span>
+                                          <span>{race.number_of_places} places</span>
                                         </p>
                                       </div>
                                       <Select
