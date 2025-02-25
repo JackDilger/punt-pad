@@ -194,6 +194,8 @@ export type Database = {
           day_id: string
           race_order: number
           status: 'upcoming' | 'in_progress' | 'finished'
+          distance: string | null
+          number_of_places: number
           created_at: string
           updated_at: string
         }
@@ -204,6 +206,8 @@ export type Database = {
           day_id: string
           race_order: number
           status?: 'upcoming' | 'in_progress' | 'finished'
+          distance?: string | null
+          number_of_places?: number
           created_at?: string
           updated_at?: string
         }
@@ -214,6 +218,8 @@ export type Database = {
           day_id?: string
           race_order?: number
           status?: 'upcoming' | 'in_progress' | 'finished'
+          distance?: string | null
+          number_of_places?: number
           created_at?: string
           updated_at?: string
         }
