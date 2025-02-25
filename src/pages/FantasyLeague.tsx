@@ -619,10 +619,19 @@ export default function FantasyLeague() {
                         key={day.id}
                         value={day.id}
                         onClick={() => setSelectedDay(day)}
-                        className="flex-1 rounded-none data-[state=active]:bg-background"
+                        className="flex-1 rounded-none data-[state=active]:bg-background flex flex-col items-center space-y-1 py-2"
                         disabled={loading}
                       >
-                        {day.name}
+                        <span>{day.name}</span>
+                        <div className="text-xs text-muted-foreground">
+                          <span>{format(new Date(day.date), 'EEE do MMM')}</span>
+                          {day.cutoff_time && (
+                            <>
+                              <span className="mx-1">·</span>
+                              <span>Deadline {format(new Date(day.cutoff_time), 'h:mmaaa')}</span>
+                            </>
+                          )}
+                        </div>
                       </TabsTrigger>
                     ))}
                   </TabsList>
