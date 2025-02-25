@@ -625,70 +625,6 @@ export default function FantasyLeague() {
           </Dialog>
         </div>
 
-        <Card className="border-muted bg-muted/5">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="mx-auto text-center">
-                <h3 className="text-sm font-medium">Power-Up Chips</h3>
-                <p className="text-sm text-muted-foreground">
-                  Enhance your selections with special chips
-                </p>
-              </div>
-              {activeChip && (
-                <div className="absolute right-4 flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Click any selection to apply</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setActiveChip(null)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center gap-6">
-              <TooltipProvider>
-                {chips.map((chip) => (
-                  <Tooltip key={chip.id}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "relative flex flex-col items-center gap-2 h-auto py-3 px-6 rounded-xl border-dashed min-w-[120px] bg-background border-input",
-                          chip.used && "opacity-50 cursor-not-allowed",
-                          activeChip === chip.id && "border-solid bg-accent text-accent-foreground",
-                          !chip.used && !activeChip && "hover:bg-accent hover:text-accent-foreground"
-                        )}
-                        onClick={() => {
-                          if (!chip.used) {
-                            setSelectedChip(chip.id);
-                            setChipModalOpen(true);
-                          }
-                        }}
-                        disabled={chip.used}
-                      >
-                        <chip.icon className="h-6 w-6" />
-                        <span className="text-sm font-medium">{chip.name}</span>
-                        {chip.used && (
-                          <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-xl">
-                            <X className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[200px]">
-                      <p className="text-xs text-muted-foreground">{chip.description}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </TooltipProvider>
-            </div>
-          </CardContent>
-        </Card>
-
         <Tabs defaultValue="selections" className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger 
@@ -698,23 +634,23 @@ export default function FantasyLeague() {
               Selections
             </TabsTrigger>
             <TabsTrigger 
-              value="stable"
+              value="my-stable"
               className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
             >
               My Stable
             </TabsTrigger>
             <TabsTrigger 
-              value="leaderboard"
+              value="league-table"
               className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
             >
               League Table
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="selections" className="space-y-4">
+          <TabsContent value="selections">
             <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <Tabs value={selectedDay} onValueChange={handleDayChange} className="w-full">
+                <Tabs defaultValue={selectedDay} onValueChange={handleDayChange}>
                   <TabsList className="grid w-full grid-cols-4 rounded-none bg-muted/50 p-0">
                     {festivalDays.map((day) => (
                       <TabsTrigger 
@@ -736,18 +672,54 @@ export default function FantasyLeague() {
                   {festivalDays.map((day) => (
                     <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
                       <div className="space-y-6">
-                        <h2 className="text-xl font-semibold">{day.name} Races</h2>
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-xl font-semibold">{day.name} Races</h2>
+                          {activeChip && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span>Click any selection to apply</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setActiveChip(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          {chips.map((chip) => (
+                            <Card
+                              key={chip.id}
+                              className={cn(
+                                "cursor-pointer transition-colors hover:bg-accent",
+                                activeChip === chip.id && "bg-accent",
+                                chip.used && "opacity-50 cursor-not-allowed"
+                              )}
+                              onClick={() => handleChipClick(chip.id)}
+                            >
+                              <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                                <chip.icon className="h-6 w-6" />
+                                <div>
+                                  <p className="font-medium">{chip.name}</p>
+                                  <p className="text-xs text-muted-foreground">{chip.description}</p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {day.selections_submitted ? (
+                          <div className="bg-green-50 p-4 rounded-md mb-4">
+                            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
+                          </div>
+                        ) : null}
 
                         {loading ? (
                           <p>Loading races...</p>
                         ) : day.races.length > 0 ? (
                           <div className="space-y-4">
-                            {day.selections_submitted ? (
-                              <div className="bg-green-50 p-4 rounded-md mb-4">
-                                <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
-                              </div>
-                            ) : null}
-
                             {day.races.map((race) => {
                               const selection = festivalDays.find(d => d.id === selectedDay)?.races.find(r => r.id === race.id);
                               const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
@@ -975,7 +947,7 @@ export default function FantasyLeague() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="stable" className="space-y-4">
+          <TabsContent value="my-stable" className="space-y-4">
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-semibold">My Stable</h2>
@@ -988,7 +960,7 @@ export default function FantasyLeague() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="leaderboard" className="space-y-4">
+          <TabsContent value="league-table" className="space-y-4">
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-semibold">League Table</h2>
