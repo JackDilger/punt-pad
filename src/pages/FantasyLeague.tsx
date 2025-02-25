@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
+import { format, isBefore } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -21,6 +21,8 @@ import { Database } from '@/integrations/supabase/types';
 import { ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface FestivalDay {
   id: string;
@@ -179,6 +181,8 @@ export default function FantasyLeague() {
     }
   ]);
   const [selections, setSelections] = useState<Selection[]>([]);
+  const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -196,6 +200,18 @@ export default function FantasyLeague() {
       }
     }
   }, [festivalDays]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const fetchFestivalDays = async () => {
     setLoading(true);
@@ -291,6 +307,7 @@ export default function FantasyLeague() {
   const handleHorseSelect = async (raceId: string, horseId: string) => {
     if (!selectedDay) return;
 
+    setHasUnsavedChanges(true);
     if (activeChip) {
       // Apply chip to the selection
       const updatedSelections = selections.map(s => 
@@ -338,6 +355,29 @@ export default function FantasyLeague() {
     })));
   };
 
+  const getSubmissionStatus = useCallback((day: FestivalDay) => {
+    if (!day) return { canSubmit: false, emptySelections: [], isBeforeCutoff: false };
+    
+    const now = new Date();
+    const cutoffTime = day.cutoff_time ? new Date(day.cutoff_time) : null;
+    const isBeforeCutoff = cutoffTime ? isBefore(now, cutoffTime) : true;
+    
+    const emptySelections = day.races
+      .filter(race => !race.selected_horse_id)
+      .map(race => race.name);
+    
+    const canSubmit = emptySelections.length === 0 && isBeforeCutoff && !day.selections_submitted;
+    
+    return { canSubmit, emptySelections, isBeforeCutoff };
+  }, []);
+
+  const getSelectionProgress = useCallback((day: FestivalDay) => {
+    if (!day) return 0;
+    const totalRaces = day.races.length;
+    const selectedRaces = day.races.filter(race => race.selected_horse_id).length;
+    return (selectedRaces / totalRaces) * 100;
+  }, []);
+
   const handleSubmitSelections = async () => {
     try {
       setIsSubmitting(true);
@@ -347,10 +387,16 @@ export default function FantasyLeague() {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) return;
 
-      // Check if all races have selections
-      const allRacesSelected = currentDay.races.every(race => race.selected_horse_id);
-      if (!allRacesSelected) {
-        alert("Please select a horse for all races before submitting.");
+      const { canSubmit, isBeforeCutoff } = getSubmissionStatus(currentDay);
+      
+      if (!canSubmit) {
+        if (!isBeforeCutoff) {
+          toast({
+            title: "Submission Failed",
+            description: "The cutoff time for submissions has passed.",
+            variant: "destructive"
+          });
+        }
         return;
       }
 
@@ -370,10 +416,20 @@ export default function FantasyLeague() {
           : day
       ));
 
-      alert("Your selections have been submitted successfully!");
+      setHasUnsavedChanges(false);
+      setSubmissionDialogOpen(false);
+      
+      toast({
+        title: "Success!",
+        description: "Your selections have been submitted successfully.",
+      });
     } catch (error) {
       console.error("Error submitting selections:", error);
-      alert("There was an error submitting your selections. Please try again.");
+      toast({
+        title: "Error",
+        description: "There was an error submitting your selections. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -594,6 +650,369 @@ export default function FantasyLeague() {
     }
   };
 
+  const renderSubmissionDialog = () => {
+    if (!selectedDay) return null;
+
+    const { canSubmit, emptySelections, isBeforeCutoff } = getSubmissionStatus(selectedDay);
+    const progress = getSelectionProgress(selectedDay);
+    const cutoffTime = selectedDay.cutoff_time ? format(new Date(selectedDay.cutoff_time), 'h:mm a') : 'Not set';
+
+    return (
+      <Dialog open={submissionDialogOpen} onOpenChange={setSubmissionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Submit Selections for {selectedDay.name}</DialogTitle>
+            <DialogDescription>
+              Please review your selections before submitting. Once submitted, selections cannot be changed.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Selection Progress</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} />
+            </div>
+
+            {emptySelections.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  You have {emptySelections.length} races without selections:
+                  <ul className="list-disc list-inside mt-2">
+                    {emptySelections.map(race => (
+                      <li key={race}>{race}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4" />
+              <span>Submission cutoff time: {cutoffTime}</span>
+            </div>
+
+            {!isBeforeCutoff && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  The cutoff time for submissions has passed.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {selectedDay.selections_submitted && (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>
+                  You have already submitted selections for this day.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSubmissionDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitSelections}
+              disabled={!canSubmit || isSubmitting}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Selections"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const renderDayContent = (day: FestivalDay) => {
+    const progress = getSelectionProgress(day);
+    const { canSubmit } = getSubmissionStatus(day);
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Selection Progress</span>
+              <span className="text-sm font-medium">{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} />
+          </div>
+          
+          <Button
+            onClick={() => setSubmissionDialogOpen(true)}
+            disabled={day.selections_submitted}
+          >
+            {day.selections_submitted ? "Selections Submitted" : "Submit Selections"}
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-4">
+          {chips.map((chip) => (
+            <TooltipProvider key={chip.id}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-colors hover:bg-accent",
+                      activeChip === chip.id && "bg-accent",
+                      chip.used && "opacity-50 cursor-not-allowed"
+                    )}
+                    onClick={() => handleChipClick(chip.id)}
+                  >
+                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                      <p className="font-medium text-lg">{chip.name}</p>
+                    </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px]">
+                  <p>{chip.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ))}
+        </div>
+
+        {day.selections_submitted ? (
+          <div className="bg-green-50 p-4 rounded-md mb-4">
+            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <p>Loading races...</p>
+        ) : day.races.length > 0 ? (
+          <div className="space-y-4">
+            {day.races.map((race) => {
+              const selection = festivalDays.find(d => d.id === selectedDay?.id)?.races.find(r => r.id === race.id);
+              const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
+
+              return (
+                <Card 
+                  key={race.id} 
+                  className={cn(
+                    "relative",
+                    activeChip && "cursor-pointer hover:shadow-md transition-shadow",
+                    selection?.chip && "border-primary/50"
+                  )}
+                  onClick={() => {
+                    if (activeChip && !selection?.chip) {
+                      const defaultHorse = race.horses[0];
+                      if (defaultHorse) {
+                        handleHorseSelect(race.id, defaultHorse.id);
+                      }
+                    }
+                  }}
+                >
+                  {selection?.chip && (
+                    <div className="absolute top-2 right-2">
+                      {/* <div className="p-1 rounded-full bg-primary/10">
+                        {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
+                          className: "h-4 w-4 text-primary"
+                        })}
+                      </div> */}
+                    </div>
+                  )}
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{race.name}</h3>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleStartEditing(race)}
+                              className="h-6 w-6"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-2">
+                          <span>{format(new Date(race.race_time), "HH:mm")}</span>
+                          {race.distance && (
+                            <>
+                              <span>·</span>
+                              <span>{race.distance}</span>
+                            </>
+                          )}
+                          <span>·</span>
+                          <span>{race.number_of_places} places</span>
+                        </p>
+                      </div>
+                      <Select
+                        value={race.selected_horse_id || ""}
+                        onValueChange={(value) => handleHorseSelect(race.id, value)}
+                        disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
+                      >
+                        <SelectTrigger 
+                          className={cn(
+                            "w-[200px]",
+                            race.selected_horse_id && "border-green-500"
+                          )}
+                        >
+                          <SelectValue placeholder="Select a horse" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {race.horses?.map((horse) => (
+                            <SelectItem key={horse.id} value={horse.id}>
+                              <div className="flex items-center w-full gap-2">
+                                <span className="flex-grow">{horse.name}</span>
+                                <span className="text-sm">
+                                  {toFractionalOdds(horse.fixed_odds)}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {editingRaceId === race.id && editingValues && (
+                      <div className="border-t pt-4 mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">Horses</h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAddHorse}
+                            className="mb-4"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Horse
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {editingValues.horses.map((horse, index) => (
+                            <div
+                              key={horse.id}
+                              className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
+                            >
+                              <div className="flex-1 mr-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex-1">
+                                    <Input
+                                      value={horse.name}
+                                      onChange={(e) =>
+                                        handleHorseFieldChange(horse.id, 'name', e.target.value)
+                                      }
+                                      className="mb-2"
+                                      placeholder="Horse Name"
+                                    />
+                                    <div className="grid grid-cols-3 gap-4">
+                                      <div>
+                                        <Label>Fixed Odds</Label>
+                                        <Input
+                                          type="number"
+                                          value={horse.fixed_odds}
+                                          onChange={(e) =>
+                                            handleHorseFieldChange(
+                                              horse.id,
+                                              'fixed_odds',
+                                              parseFloat(e.target.value)
+                                            )
+                                          }
+                                          className="mt-1"
+                                          placeholder="Fixed Odds"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label>Points if Wins</Label>
+                                        <Input
+                                          type="number"
+                                          value={horse.points_if_wins}
+                                          onChange={(e) =>
+                                            handleHorseFieldChange(
+                                              horse.id,
+                                              'points_if_wins',
+                                              parseFloat(e.target.value)
+                                            )
+                                          }
+                                          className="mt-1"
+                                          placeholder="Points if Wins"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label>Points if Places</Label>
+                                        <Input
+                                          type="number"
+                                          value={horse.points_if_places}
+                                          onChange={(e) =>
+                                            handleHorseFieldChange(
+                                              horse.id,
+                                              'points_if_places',
+                                              parseFloat(e.target.value)
+                                            )
+                                          }
+                                          className="mt-1"
+                                          placeholder="Points if Places"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteHorse(horse.id)}
+                                className="h-8 w-8 flex-shrink-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-end gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancelEditing}
+                            disabled={saving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateRace(race.id)}
+                            disabled={saving}
+                          >
+                            {saving ? "Saving..." : "Save Changes"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+          </div>
+        ) : (
+          <div className="bg-muted/50 rounded-lg p-8 text-center">
+            <p>No races available for {day.name}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {day.selections_submitted 
+                ? "Selections have already been submitted for this day"
+                : "Races will be displayed here once available"}
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <AuthLayout>
       <div className="space-y-6">
@@ -660,287 +1079,7 @@ export default function FantasyLeague() {
 
                   {festivalDays.map((day) => (
                     <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-xl font-semibold">{day.name} Races</h2>
-                          {activeChip && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <span>Click any selection to apply</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setActiveChip(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4">
-                          {chips.map((chip) => (
-                            <TooltipProvider key={chip.id}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Card
-                                    className={cn(
-                                      "cursor-pointer transition-colors hover:bg-accent",
-                                      activeChip === chip.id && "bg-accent",
-                                      chip.used && "opacity-50 cursor-not-allowed"
-                                    )}
-                                    onClick={() => handleChipClick(chip.id)}
-                                  >
-                                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                                      <p className="font-medium text-lg">{chip.name}</p>
-                                    </CardContent>
-                                  </Card>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-[200px]">
-                                  <p>{chip.description}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-
-                        {day.selections_submitted ? (
-                          <div className="bg-green-50 p-4 rounded-md mb-4">
-                            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
-                          </div>
-                        ) : null}
-
-                        {loading ? (
-                          <p>Loading races...</p>
-                        ) : day.races.length > 0 ? (
-                          <div className="space-y-4">
-                            {day.races.map((race) => {
-                              const selection = festivalDays.find(d => d.id === selectedDay?.id)?.races.find(r => r.id === race.id);
-                              const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
-
-                              return (
-                                <Card 
-                                  key={race.id} 
-                                  className={cn(
-                                    "relative",
-                                    activeChip && "cursor-pointer hover:shadow-md transition-shadow",
-                                    selection?.chip && "border-primary/50"
-                                  )}
-                                  onClick={() => {
-                                    if (activeChip && !selection?.chip) {
-                                      const defaultHorse = race.horses[0];
-                                      if (defaultHorse) {
-                                        handleHorseSelect(race.id, defaultHorse.id);
-                                      }
-                                    }
-                                  }}
-                                >
-                                  {selection?.chip && (
-                                    <div className="absolute top-2 right-2">
-                                      {/* <div className="p-1 rounded-full bg-primary/10">
-                                        {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
-                                          className: "h-4 w-4 text-primary"
-                                        })}
-                                      </div> */}
-                                    </div>
-                                  )}
-                                  <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <div className="flex items-center gap-2">
-                                          <h3 className="font-medium">{race.name}</h3>
-                                          {isAdmin && (
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => handleStartEditing(race)}
-                                              className="h-6 w-6"
-                                            >
-                                              <Pencil className="h-3 w-3" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                          <span>{format(new Date(race.race_time), "HH:mm")}</span>
-                                          {race.distance && (
-                                            <>
-                                              <span>·</span>
-                                              <span>{race.distance}</span>
-                                            </>
-                                          )}
-                                          <span>·</span>
-                                          <span>{race.number_of_places} places</span>
-                                        </p>
-                                      </div>
-                                      <Select
-                                        value={race.selected_horse_id || ""}
-                                        onValueChange={(value) => handleHorseSelect(race.id, value)}
-                                        disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
-                                      >
-                                        <SelectTrigger 
-                                          className={cn(
-                                            "w-[200px]",
-                                            race.selected_horse_id && "border-green-500"
-                                          )}
-                                        >
-                                          <SelectValue placeholder="Select a horse" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {race.horses?.map((horse) => (
-                                            <SelectItem key={horse.id} value={horse.id}>
-                                              <div className="flex items-center w-full gap-2">
-                                                <span className="flex-grow">{horse.name}</span>
-                                                <span className="text-sm">
-                                                  {toFractionalOdds(horse.fixed_odds)}
-                                                </span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent>
-                                    {editingRaceId === race.id && editingValues && (
-                                      <div className="border-t pt-4 mt-4">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <h4 className="font-medium">Horses</h4>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleAddHorse}
-                                            className="mb-4"
-                                          >
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Horse
-                                          </Button>
-                                        </div>
-                                        <div className="space-y-2">
-                                          {editingValues.horses.map((horse, index) => (
-                                            <div
-                                              key={horse.id}
-                                              className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
-                                            >
-                                              <div className="flex-1 mr-4">
-                                                <div className="flex items-center gap-4">
-                                                  <div className="flex-1">
-                                                    <Input
-                                                      value={horse.name}
-                                                      onChange={(e) =>
-                                                        handleHorseFieldChange(horse.id, 'name', e.target.value)
-                                                      }
-                                                      className="mb-2"
-                                                      placeholder="Horse Name"
-                                                    />
-                                                    <div className="grid grid-cols-3 gap-4">
-                                                      <div>
-                                                        <Label>Fixed Odds</Label>
-                                                        <Input
-                                                          type="number"
-                                                          value={horse.fixed_odds}
-                                                          onChange={(e) =>
-                                                            handleHorseFieldChange(
-                                                              horse.id,
-                                                              'fixed_odds',
-                                                              parseFloat(e.target.value)
-                                                            )
-                                                          }
-                                                          className="mt-1"
-                                                          placeholder="Fixed Odds"
-                                                        />
-                                                      </div>
-                                                      <div>
-                                                        <Label>Points if Wins</Label>
-                                                        <Input
-                                                          type="number"
-                                                          value={horse.points_if_wins}
-                                                          onChange={(e) =>
-                                                            handleHorseFieldChange(
-                                                              horse.id,
-                                                              'points_if_wins',
-                                                              parseFloat(e.target.value)
-                                                            )
-                                                          }
-                                                          className="mt-1"
-                                                          placeholder="Points if Wins"
-                                                        />
-                                                      </div>
-                                                      <div>
-                                                        <Label>Points if Places</Label>
-                                                        <Input
-                                                          type="number"
-                                                          value={horse.points_if_places}
-                                                          onChange={(e) =>
-                                                            handleHorseFieldChange(
-                                                              horse.id,
-                                                              'points_if_places',
-                                                              parseFloat(e.target.value)
-                                                            )
-                                                          }
-                                                          className="mt-1"
-                                                          placeholder="Points if Places"
-                                                        />
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleDeleteHorse(horse.id)}
-                                                className="h-8 w-8 flex-shrink-0"
-                                              >
-                                                <X className="h-4 w-4" />
-                                              </Button>
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <div className="flex justify-end gap-2 mt-4">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleCancelEditing}
-                                            disabled={saving}
-                                          >
-                                            Cancel
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            onClick={() => handleUpdateRace(race.id)}
-                                            disabled={saving}
-                                          >
-                                            {saving ? "Saving..." : "Save Changes"}
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
-
-                            {!day.selections_submitted && (
-                              <div className="flex justify-end mt-6">
-                                <Button 
-                                  onClick={handleSubmitSelections} 
-                                  disabled={isSubmitting || !day.races.every(race => race.selected_horse_id)}
-                                >
-                                  {isSubmitting ? "Submitting..." : "Submit Selections"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="bg-muted/50 rounded-lg p-8 text-center">
-                            <p>No races available for {day.name}</p>
-                            <p className="text-sm text-muted-foreground mt-2">
-                              {day.selections_submitted 
-                                ? "Selections have already been submitted for this day"
-                                : "Races will be displayed here once available"}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      {renderDayContent(day)}
                     </TabsContent>
                   ))}
                 </Tabs>
@@ -975,6 +1114,7 @@ export default function FantasyLeague() {
           </TabsContent>
         </Tabs>
       </div>
+      {renderSubmissionDialog()}
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <DialogContent>
           <DialogHeader>
