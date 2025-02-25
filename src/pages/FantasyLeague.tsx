@@ -443,20 +443,33 @@ export default function FantasyLeague() {
 
       if (raceError) throw raceError;
 
+      // Get horses marked for deletion
+      const horsesToDelete = race.horses
+        .filter(h => !editingValues.horses.some(eh => eh.id === h.id))
+        .map(h => h.id);
+
+      // Delete horses marked for deletion
+      if (horsesToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('fantasy_horses')
+          .delete()
+          .in('id', horsesToDelete);
+
+        if (deleteError) throw deleteError;
+      }
+
       // Handle new horses
       const newHorses = editingValues.horses.filter(h => h.id.startsWith('temp-'));
       for (const horse of newHorses) {
-        const { data: newHorse, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('fantasy_horses')
           .insert({
             race_id: raceId,
-            name: horse.name || null,
-            fixed_odds: horse.fixed_odds || null,
-            points_if_wins: horse.points_if_wins || null,
-            points_if_places: horse.points_if_places || null
-          })
-          .select()
-          .single();
+            name: horse.name || '',
+            fixed_odds: horse.fixed_odds || 0,
+            points_if_wins: horse.points_if_wins || 0,
+            points_if_places: horse.points_if_places || 0
+          });
 
         if (insertError) throw insertError;
       }
@@ -477,7 +490,7 @@ export default function FantasyLeague() {
         if (horseError) throw horseError;
       }
 
-      // Refresh the races data
+      // Refresh the races data to get updated horses
       const { data: updatedRace, error: fetchError } = await supabase
         .from('fantasy_races')
         .select(`
@@ -489,7 +502,7 @@ export default function FantasyLeague() {
 
       if (fetchError) throw fetchError;
 
-      // Update local state
+      // Update local state with the fresh data
       setFestivalDays(days => days.map(day => {
         if (day.id === currentDay.id) {
           return {
@@ -497,10 +510,8 @@ export default function FantasyLeague() {
             races: day.races.map(r => 
               r.id === raceId 
                 ? {
-                    ...r,
-                    name: editingValues.name,
-                    race_time: currentDate.toISOString(),
-                    horses: updatedRace.horses
+                    ...updatedRace,
+                    horses: updatedRace.horses || []
                   }
                 : r
             )
@@ -511,10 +522,18 @@ export default function FantasyLeague() {
 
       setEditingRaceId(null);
       setEditingValues(null);
-      setSaving(false);
+      toast({
+        title: "Success",
+        description: "Race details updated successfully",
+      });
     } catch (error) {
       console.error('Error updating race:', error);
-      alert('There was an error updating the race. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to update race details. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setSaving(false);
     }
   };
@@ -780,7 +799,17 @@ export default function FantasyLeague() {
                                   <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start">
                                       <div>
-                                        <h3 className="font-medium">{race.name}</h3>
+                                        <div className="flex items-center gap-2">
+                                          <h3 className="font-medium">{race.name}</h3>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleStartEditing(race)}
+                                            className="h-6 w-6"
+                                          >
+                                            <Pencil className="h-3 w-3" />
+                                          </Button>
+                                        </div>
                                         <p className="text-sm text-muted-foreground">
                                           {format(new Date(race.race_time), "HH:mm")}
                                         </p>
@@ -908,6 +937,23 @@ export default function FantasyLeague() {
                                               </Button>
                                             </div>
                                           ))}
+                                        </div>
+                                        <div className="flex justify-end gap-2 mt-4">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelEditing}
+                                            disabled={saving}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleUpdateRace(race.id)}
+                                            disabled={saving}
+                                          >
+                                            {saving ? "Saving..." : "Save Changes"}
+                                          </Button>
                                         </div>
                                       </div>
                                     )}
