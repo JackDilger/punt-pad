@@ -763,14 +763,18 @@ export default function FantasyLeague() {
                 <TooltipTrigger asChild>
                   <Card
                     className={cn(
-                      "cursor-pointer transition-colors hover:bg-accent",
-                      activeChip === chip.id && "bg-accent",
-                      chip.used && "opacity-50 cursor-not-allowed"
+                      "cursor-pointer transition-all",
+                      "hover:bg-accent hover:border-accent-foreground",
+                      activeChip === chip.id && "bg-accent border-accent-foreground",
+                      chip.used && "opacity-50 cursor-not-allowed hover:border-input hover:bg-transparent"
                     )}
                     onClick={() => handleChipClick(chip.id)}
                   >
-                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                    <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
                       <p className="font-medium text-lg">{chip.name}</p>
+                      {activeChip === chip.id && (
+                        <p className="text-sm text-muted-foreground">Click a selection to apply</p>
+                      )}
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
@@ -801,7 +805,7 @@ export default function FantasyLeague() {
                   key={race.id} 
                   className={cn(
                     "relative",
-                    activeChip && "cursor-pointer hover:shadow-md transition-shadow",
+                    activeChip && "cursor-pointer hover:bg-accent/80 hover:border-accent-foreground transition-all",
                     selection?.chip && "border-primary/50"
                   )}
                   onClick={() => {
@@ -813,15 +817,6 @@ export default function FantasyLeague() {
                     }
                   }}
                 >
-                  {selection?.chip && (
-                    <div className="absolute top-2 right-2">
-                      {/* <div className="p-1 rounded-full bg-primary/10">
-                        {React.createElement(chips.find(c => c.id === selection.chip)!.icon, {
-                          className: "h-4 w-4 text-primary"
-                        })}
-                      </div> */}
-                    </div>
-                  )}
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <div>
@@ -839,7 +834,7 @@ export default function FantasyLeague() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span>{format(new Date(race.race_time), "HH:mm")}</span>
+                          <span>{format(new Date(race.race_time), 'HH:mm')}</span>
                           {race.distance && (
                             <>
                               <span>·</span>
@@ -850,32 +845,41 @@ export default function FantasyLeague() {
                           <span>{race.number_of_places} places</span>
                         </p>
                       </div>
-                      <Select
-                        value={race.selected_horse_id || ""}
-                        onValueChange={(value) => handleHorseSelect(race.id, value)}
-                        disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
-                      >
-                        <SelectTrigger 
-                          className={cn(
-                            "w-[200px]",
-                            race.selected_horse_id && "border-green-500"
-                          )}
+                      <div className="flex items-center gap-2">
+                        {selection?.chip && (
+                          <div className="flex-shrink-0">
+                            {selection.chip === 'superBoost' && <Rocket className="h-4 w-4 text-primary" />}
+                            {selection.chip === 'doubleChance' && <Target className="h-4 w-4 text-primary" />}
+                            {selection.chip === 'tripleThreat' && <Scale className="h-4 w-4 text-primary" />}
+                          </div>
+                        )}
+                        <Select
+                          value={race.selected_horse_id?.toString() ?? ""}
+                          onValueChange={(value) => handleHorseSelect(race.id, value)}
+                          disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
                         >
-                          <SelectValue placeholder="Select a horse" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {race.horses?.map((horse) => (
-                            <SelectItem key={horse.id} value={horse.id}>
-                              <div className="flex items-center w-full gap-2">
-                                <span className="flex-grow">{horse.name}</span>
-                                <span className="text-sm">
-                                  {toFractionalOdds(horse.fixed_odds)}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger 
+                            className={cn(
+                              "w-[200px]",
+                              race.selected_horse_id && "border-green-500"
+                            )}
+                          >
+                            <SelectValue placeholder="Select a horse" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {race.horses?.map((horse) => (
+                              <SelectItem key={horse.id} value={horse.id}>
+                                <div className="flex items-center w-full gap-2">
+                                  <span className="flex-grow">{horse.name}</span>
+                                  <span className="text-sm">
+                                    {toFractionalOdds(horse.fixed_odds)}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
