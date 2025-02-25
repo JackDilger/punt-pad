@@ -138,6 +138,8 @@ export default function FantasyLeague() {
   const [chipModalOpen, setChipModalOpen] = useState(false);
   const [selectedChip, setSelectedChip] = useState<Chip | null>(null);
   const [activeChip, setActiveChip] = useState<ChipType | null>(null);
+  const [chipConfirmationOpen, setChipConfirmationOpen] = useState(false);
+  const [pendingChipRace, setPendingChipRace] = useState<{raceId: string, horseId: string} | null>(null);
   const [chips, setChips] = useState<Chip[]>([
     {
       id: 'superBoost',
@@ -265,19 +267,31 @@ export default function FantasyLeague() {
         throw selectionsError;
       }
 
+      console.log("DEBUG - Fetched selections:", selectionsData);
+
       const selections = selectionsData;
       const hasSubmittedSelections = selections.some(s => s.submitted_at !== null);
+
+      // Update chips state based on selections
+      const usedChips = new Set(selections.filter(s => s.chip).map(s => s.chip));
+      setChips(prevChips => prevChips.map(chip => ({
+        ...chip,
+        used: usedChips.has(chip.id as ChipType)
+      })));
 
       // Map races to their respective days
       const days = daysData.map(day => {
         const dayRaces = racesData
           .filter(race => race.day_id === day.id)
-          .map(race => ({
-            ...race,
-            horses: race.horses || [],
-            selected_horse_id: selections.find(s => s.race_id === race.id)?.horse_id,
-            chip: selections.find(s => s.race_id === race.id)?.chip
-          }));
+          .map(race => {
+            const selection = selections.find(s => s.race_id === race.id);
+            return {
+              ...race,
+              horses: race.horses || [],
+              selected_horse_id: selection?.horse_id,
+              chip: selection?.chip
+            };
+          });
 
         return {
           ...day,
@@ -287,11 +301,16 @@ export default function FantasyLeague() {
         };
       });
 
-      console.log("Final processed days:", days);
+      console.log("DEBUG - Processed days:", days);
       setFestivalDays(days);
       setSelections(selections);
     } catch (error) {
       console.error("Error fetching festival days:", error);
+      toast({
+        title: "Error Loading Data",
+        description: "There was a problem loading your selections. Please refresh the page.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -309,9 +328,41 @@ export default function FantasyLeague() {
 
     setHasUnsavedChanges(true);
     if (activeChip) {
+      // Check if this specific chip has been used
+      const isChipAlreadyUsed = chips.find(c => c.id === activeChip)?.used;
+      if (isChipAlreadyUsed) {
+        toast({
+          title: "Chip Already Used",
+          description: "You have already used this chip. Each chip can only be used once during the festival.",
+          variant: "destructive"
+        });
+        setActiveChip(null); // Reset active chip
+        return;
+      }
+
       // Check if any race on the current day already has a chip
-      const hasChipForCurrentDay = selectedDay.races.some(race => race.chip !== undefined && race.id !== raceId);
-      if (hasChipForCurrentDay) {
+      const hasChipForCurrentDay = selectedDay.races.some(race => {
+        const hasChip = race.chip !== undefined;
+        if (hasChip) {
+          console.log("DEBUG - Found race with chip:", race);
+        }
+        return hasChip;
+      });
+
+      // Also check selections for this day that might not be reflected in the UI yet
+      const selectionsWithChips = selections.filter(s => 
+        // Only check selections for the current day
+        s.day_id === selectedDay.id && 
+        // And that have a chip
+        s.chip !== undefined
+      );
+      
+      const hasChipInSelections = selectionsWithChips.length > 0;
+      
+      console.log("DEBUG - selections for current day with chips:", selectionsWithChips);
+      console.log("DEBUG - hasChipInSelections:", hasChipInSelections);
+
+      if (hasChipForCurrentDay || hasChipInSelections) {
         toast({
           title: "Chip Already Used",
           description: "You can only use one chip per day. You have already used a chip for this day's selections.",
@@ -321,34 +372,13 @@ export default function FantasyLeague() {
         return;
       }
 
-      // Apply chip to the selection
-      const updatedSelections = selections.map(s => 
-        s.race_id === raceId ? { ...s, horse_id: horseId, chip: activeChip } : s
-      );
-      setSelections(updatedSelections);
-
-      // Update race in festival days to show chip
-      setFestivalDays(days => days.map(day => ({
-        ...day,
-        races: day.races.map(race => 
-          race.id === raceId 
-            ? { ...race, selected_horse_id: horseId, chip: activeChip }
-            : race
-        )
-      })));
-
-      // Mark chip as used and reset active chip
-      setChips(prevChips => prevChips.map(c => 
-        c.id === activeChip ? { ...c, used: true } : c
-      ));
-      setActiveChip(null);
-
-      // Show confirmation toast
-      const chipName = chips.find(c => c.id === activeChip)?.name;
-      toast({
-        title: "Chip Applied",
-        description: `${chipName} has been applied to your selection.`,
-      });
+      // Find the chip details for the confirmation dialog
+      const chipDetails = chips.find(c => c.id === activeChip);
+      setSelectedChip(chipDetails || null);
+      
+      // Show confirmation dialog before applying chip
+      setPendingChipRace({ raceId, horseId });
+      setChipConfirmationOpen(true);
     } else {
       // Regular selection without chip
       const updatedSelections = selections.map(s => 
@@ -359,11 +389,78 @@ export default function FantasyLeague() {
       setFestivalDays(days => days.map(day => ({
         ...day,
         races: day.races.map(race => 
-          race.id === raceId 
-            ? { ...race, selected_horse_id: horseId }
-            : race
+          race.id === raceId ? { ...race, selected_horse_id: horseId } : race
         )
       })));
+
+      // Save the selection to the database
+      try {
+        const userId = (await supabase.auth.getUser()).data.user?.id;
+        if (!userId) {
+          console.error("No user ID found");
+          return;
+        }
+
+        // Find existing selection for this race
+        const existingSelection = selections.find(s => s.race_id === raceId);
+        
+        if (existingSelection) {
+          // Update existing selection
+          console.log("Updating existing selection", { id: existingSelection.id, horseId });
+          const { data, error } = await supabase
+            .from('fantasy_selections')
+            .update({ 
+              horse_id: horseId 
+            })
+            .eq('id', existingSelection.id)
+            .select();
+            
+          if (error) {
+            console.error("Error updating selection:", error);
+            toast({
+              title: "Error",
+              description: "There was an error saving your selection. Please try again.",
+              variant: "destructive"
+            });
+          } else {
+            console.log("Selection updated successfully", data);
+            // Mark that changes have been saved
+            setHasUnsavedChanges(false);
+          }
+        } else {
+          // Create new selection
+          console.log("Creating new selection", { userId, horseId, raceId, dayId: selectedDay.id });
+          const { data, error } = await supabase
+            .from('fantasy_selections')
+            .insert({
+              user_id: userId,
+              horse_id: horseId,
+              race_id: raceId,
+              day_id: selectedDay.id
+            })
+            .select();
+            
+          if (error) {
+            console.error("Error creating selection:", error);
+            toast({
+              title: "Error",
+              description: "There was an error saving your selection. Please try again.",
+              variant: "destructive"
+            });
+          } else {
+            console.log("Selection created successfully", data);
+            // Mark that changes have been saved
+            setHasUnsavedChanges(false);
+          }
+        }
+      } catch (error) {
+        console.error("Error saving selection:", error);
+        toast({
+          title: "Error",
+          description: "There was an error saving your selection. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -656,15 +753,44 @@ export default function FantasyLeague() {
   const handleChipClick = (chipId: ChipType) => {
     if (!selectedDay) return;
 
-    // Check if any race on the current day already has a chip (including pending selections)
-    const hasChipForCurrentDay = selectedDay.races.some(race => 
-      // Check for submitted chip selections
-      race.chip !== undefined ||
-      // Check for pending chip selections in the selections array
-      selections.some(s => s.race_id === race.id && s.chip !== undefined)
-    );
+    console.log("DEBUG - handleChipClick - selectedDay:", selectedDay);
 
-    if (hasChipForCurrentDay) {
+    // First check if this specific chip is already used
+    const isChipAlreadyUsed = chips.find(c => c.id === chipId)?.used;
+    if (isChipAlreadyUsed) {
+      toast({
+        title: "Chip Already Used",
+        description: "You have already used this chip. Each chip can only be used once during the festival.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if any race on the current day already has a chip
+    const hasChipForCurrentDay = selectedDay.races.some(race => {
+      const hasChip = race.chip !== undefined;
+      if (hasChip) {
+        console.log("DEBUG - Found race with chip:", race);
+      }
+      return hasChip;
+    });
+
+    console.log("DEBUG - hasChipForCurrentDay from races:", hasChipForCurrentDay);
+
+    // Also check selections for this day that might not be reflected in the UI yet
+    const selectionsWithChips = selections.filter(s => 
+      // Only check selections for the current day
+      s.day_id === selectedDay.id && 
+      // And that have a chip
+      s.chip !== undefined
+    );
+    
+    const hasChipInSelections = selectionsWithChips.length > 0;
+    
+    console.log("DEBUG - selections for current day with chips:", selectionsWithChips);
+    console.log("DEBUG - hasChipInSelections:", hasChipInSelections);
+
+    if (hasChipForCurrentDay || hasChipInSelections) {
       toast({
         title: "Chip Already Used",
         description: "You can only use one chip per day. You have already used a chip for this day's selections.",
@@ -673,13 +799,122 @@ export default function FantasyLeague() {
       return;
     }
 
-    // Check if this specific chip has been used
-    if (chips.find((c) => c.id === chipId)?.used) return;
-    
-    const chip = chips.find((c) => c.id === chipId);
-    if (chip) {
-      setSelectedChip(chip);
-      setChipModalOpen(true);
+    // If we get here, we can activate the chip
+    setActiveChip(chipId);
+    toast({
+      title: `${chips.find(c => c.id === chipId)?.name} Activated`,
+      description: "Select a horse to apply this chip. Click the chip again to cancel.",
+    });
+  };
+
+  const handleConfirmChip = async () => {
+    if (!pendingChipRace || !selectedChip || !selectedDay) {
+      setChipConfirmationOpen(false);
+      return;
+    }
+
+    const { raceId, horseId } = pendingChipRace;
+    const currentChip = selectedChip.id as ChipType;
+
+    try {
+      console.log("Starting chip application process", { raceId, horseId, chip: currentChip });
+      
+      // Apply chip to the selection
+      const updatedSelections = selections.map(s => 
+        s.race_id === raceId ? { ...s, horse_id: horseId, chip: currentChip } : s
+      );
+      setSelections(updatedSelections);
+
+      // Update race in festival days to show chip
+      setFestivalDays(days => days.map(day => ({
+        ...day,
+        races: day.races.map(race => 
+          race.id === raceId 
+            ? { ...race, selected_horse_id: horseId, chip: currentChip }
+            : race
+        )
+      })));
+
+      // Mark chip as used and reset active chip
+      setChips(prevChips => prevChips.map(c => 
+        c.id === currentChip ? { ...c, used: true } : c
+      ));
+      setActiveChip(null);
+
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user ID found");
+        return;
+      }
+
+      // Find existing selection for this race
+      const existingSelection = selections.find(s => s.race_id === raceId);
+      
+      console.log("Database operation details:", { 
+        existingSelection, 
+        raceId, 
+        horseId, 
+        chip: currentChip,
+        dayId: selectedDay.id
+      });
+
+      if (existingSelection) {
+        // Update existing selection with chip
+        const { error } = await supabase
+          .from('fantasy_selections')
+          .update({ 
+            horse_id: horseId,
+            chip: currentChip
+          })
+          .eq('id', existingSelection.id);
+
+        if (error) {
+          console.error("Error updating selection with chip:", error);
+          toast({
+            title: "Error",
+            description: "There was an error saving your selection with chip.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        // Create new selection with chip
+        const { error } = await supabase
+          .from('fantasy_selections')
+          .insert({
+            user_id: user.id,
+            race_id: raceId,
+            horse_id: horseId,
+            day_id: selectedDay.id,
+            chip: currentChip
+          });
+
+        if (error) {
+          console.error("Error creating selection with chip:", error);
+          toast({
+            title: "Error",
+            description: "There was an error saving your selection with chip.",
+            variant: "destructive"
+          });
+        }
+      }
+
+      setHasUnsavedChanges(false);
+      toast({
+        title: `${selectedChip.name} Applied`,
+        description: `Your ${selectedChip.name} has been applied to this race.`,
+      });
+    } catch (error) {
+      console.error("Error in handleConfirmChip:", error);
+      toast({
+        title: "Error",
+        description: "There was an error applying your chip.",
+        variant: "destructive"
+      });
+    } finally {
+      setChipConfirmationOpen(false);
+      setPendingChipRace(null);
+      setSelectedChip(null);
     }
   };
 
@@ -887,7 +1122,7 @@ export default function FantasyLeague() {
                           <span>{format(new Date(race.race_time), 'HH:mm')}</span>
                           {race.distance && (
                             <>
-                              <span>·</span>
+                              <span className="mx-1">·</span>
                               <span>{race.distance}</span>
                             </>
                           )}
@@ -1067,19 +1302,374 @@ export default function FantasyLeague() {
     );
   };
 
+  const deleteAllSelections = async () => {
+    try {
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user ID found");
+        return;
+      }
+      
+      // Delete all selections for this user
+      const { error } = await supabase
+        .from('fantasy_selections')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error("Error deleting selections:", error);
+        toast({
+          title: "Error",
+          description: "There was an error deleting selections.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Clear local state
+      setSelections([]);
+      
+      // Clear UI state
+      setFestivalDays(days => days.map(day => ({
+        ...day,
+        races: day.races.map(race => ({
+          ...race,
+          selected_horse_id: undefined,
+          chip: undefined
+        }))
+      })));
+      
+      // Reset chip usage state
+      setChips(prevChips => prevChips.map(c => ({
+        ...c,
+        used: false
+      })));
+      
+      toast({
+        title: "Debug: Selections Deleted",
+        description: "All selections have been deleted for testing purposes.",
+      });
+      
+      // Refresh data
+      await fetchFestivalDays();
+    } catch (error) {
+      console.error("Error in deleteAllSelections:", error);
+    }
+  };
+
+  const clearChipData = async () => {
+    if (!selectedDay) return;
+    
+    try {
+      console.log("Clearing chip data for debugging");
+      
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user ID found");
+        return;
+      }
+      
+      // Clear chips from UI state
+      setFestivalDays(days => days.map(day => ({
+        ...day,
+        races: day.races.map(race => ({
+          ...race,
+          chip: undefined
+        }))
+      })));
+      
+      // Reset chip usage state
+      setChips(prevChips => prevChips.map(c => ({
+        ...c,
+        used: false
+      })));
+      
+      // Clear selections from local state
+      setSelections(prev => prev.map(s => ({
+        ...s,
+        chip: undefined
+      })));
+      
+      // Clear chip data from selections in the database
+      const { error } = await supabase
+        .from('fantasy_selections')
+        .update({ chip: null })
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error("Error clearing chip data:", error);
+        toast({
+          title: "Error",
+          description: "There was an error clearing chip data.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Refresh data
+      await fetchFestivalDays();
+      
+      toast({
+        title: "Debug: Chips Cleared",
+        description: "All chip data has been cleared for testing purposes.",
+      });
+    } catch (error) {
+      console.error("Error in clearChipData:", error);
+    }
+  };
+
+  const forceCheckChipData = async () => {
+    try {
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user found");
+        return;
+      }
+      
+      // Get user's selections with chip data
+      const { data, error } = await supabase
+        .from('fantasy_selections')
+        .select('*')
+        .eq('user_id', user.id)
+        .not('chip', 'is', null);
+      
+      if (error) {
+        console.error('Error checking chip data:', error);
+        return;
+      }
+      
+      console.log("DEBUG - Selections with chip data:", data);
+      
+      if (data && data.length > 0) {
+        toast({
+          title: "Chip Data Found",
+          description: `Found ${data.length} selections with chip data. Use the Clear Chip Data button to reset.`,
+        });
+      } else {
+        toast({
+          title: "No Chip Data",
+          description: "No selections with chip data found in the database.",
+        });
+      }
+    } catch (error) {
+      console.error('Error in forceCheckChipData:', error);
+    }
+  };
+
+  const fixDay1ChipIssue = async () => {
+    try {
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user ID found");
+        return;
+      }
+      
+      // Get day 1 ID
+      const day1 = festivalDays.find(day => day.day_number === 1);
+      if (!day1) {
+        console.error("Day 1 not found");
+        toast({
+          title: "Error",
+          description: "Day 1 not found in festival days.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log("Fixing chip issue for day 1:", day1.id);
+      
+      // Clear chip data for day 1 selections in the database
+      const { error } = await supabase
+        .from('fantasy_selections')
+        .update({ chip: null })
+        .eq('user_id', user.id)
+        .eq('day_id', day1.id);
+        
+      if (error) {
+        console.error("Error fixing day 1 chip issue:", error);
+        toast({
+          title: "Error",
+          description: "There was an error fixing day 1 chip issue.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Update UI state for day 1
+      setFestivalDays(days => days.map(day => {
+        if (day.day_number === 1) {
+          return {
+            ...day,
+            races: day.races.map(race => ({
+              ...race,
+              chip: undefined
+            }))
+          };
+        }
+        return day;
+      }));
+      
+      // Update local selections state
+      setSelections(prev => prev.map(s => {
+        if (s.day_id === day1.id) {
+          return {
+            ...s,
+            chip: undefined
+          };
+        }
+        return s;
+      }));
+      
+      toast({
+        title: "Day 1 Chip Issue Fixed",
+        description: "Chip data for day 1 has been cleared.",
+      });
+      
+      // Refresh data
+      await fetchFestivalDays();
+    } catch (error) {
+      console.error("Error in fixDay1ChipIssue:", error);
+    }
+  };
+
+  const checkAllSelections = async () => {
+    try {
+      // Get the current user
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        console.error("No user found");
+        return;
+      }
+      
+      // Get all user's selections
+      const { data, error } = await supabase
+        .from('fantasy_selections')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error checking selections:', error);
+        return;
+      }
+      
+      console.log("DEBUG - All user selections:", data);
+      
+      // Count selections by day
+      const selectionsByDay: Record<string, { total: number, withChip: number }> = {};
+      
+      data?.forEach(selection => {
+        if (!selectionsByDay[selection.day_id]) {
+          selectionsByDay[selection.day_id] = { total: 0, withChip: 0 };
+        }
+        
+        selectionsByDay[selection.day_id].total++;
+        
+        if (selection.chip) {
+          selectionsByDay[selection.day_id].withChip++;
+        }
+      });
+      
+      console.log("DEBUG - Selections by day:", selectionsByDay);
+      
+      // Show toast with summary
+      if (data && data.length > 0) {
+        const dayInfo = Object.entries(selectionsByDay).map(([dayId, counts]) => {
+          const day = festivalDays.find(d => d.id === dayId);
+          return `Day ${day?.day_number || '?'}: ${counts.total} selections (${counts.withChip} with chip)`;
+        }).join('\n');
+        
+        toast({
+          title: `Found ${data.length} Selections`,
+          description: dayInfo,
+        });
+      } else {
+        toast({
+          title: "No Selections",
+          description: "No selections found in the database.",
+        });
+      }
+    } catch (error) {
+      console.error('Error in checkAllSelections:', error);
+    }
+  };
+
   return (
     <AuthLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Cheltenham Fantasy League 2025</h1>
-          <Button 
-            variant="default" 
-            onClick={() => setRulesOpen(true)} 
-            className="bg-primary hover:bg-primary/90 text-white"
-          >
-            <HelpCircle className="w-4 h-4 mr-2" />
-            Rules & Points
-          </Button>
+          <div className="flex gap-2">
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                onClick={deleteAllSelections} 
+                size="sm"
+                className="text-xs"
+              >
+                Delete All Selections (Dev)
+              </Button>
+            )}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                onClick={clearChipData} 
+                size="sm"
+                className="text-xs"
+              >
+                Clear Chip Data (Dev)
+              </Button>
+            )}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                onClick={forceCheckChipData} 
+                size="sm"
+                className="text-xs"
+              >
+                Force Check Chip Data (Dev)
+              </Button>
+            )}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                onClick={fixDay1ChipIssue} 
+                size="sm"
+                className="text-xs"
+              >
+                Fix Day 1 Chip Issue (Dev)
+              </Button>
+            )}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="outline" 
+                onClick={checkAllSelections} 
+                size="sm"
+                className="text-xs"
+              >
+                Check All Selections (Dev)
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => fetchFestivalDays()}
+              size="sm"
+              className="text-xs"
+            >
+              Refresh Data
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setRulesOpen(true)}
+              className="bg-primary hover:bg-primary/90 text-white"
+            >
+              <HelpCircle className="w-4 h-4 mr-2" />
+              Rules & Points
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue={festivalDays[0]?.id} className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
@@ -1275,6 +1865,51 @@ export default function FantasyLeague() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={chipConfirmationOpen} onOpenChange={setChipConfirmationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Chip Application</DialogTitle>
+            <DialogDescription>
+              Please review the details before locking your chip.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-md bg-muted/30">
+              <h3 className="font-medium mb-2">{selectedChip?.name}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{selectedChip?.description}</p>
+              
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Important Rules:</h4>
+                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                  <li>Once applied, this chip will be <span className="font-semibold">permanently locked</span> to this race</li>
+                  <li>You can still change your horse selection until you submit</li>
+                  <li>This action cannot be undone, even if you refresh the page</li>
+                  <li>You can only use one chip per day</li>
+                </ul>
+              </div>
+            </div>
+            
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <p className="text-sm">Are you sure you want to apply the {selectedChip?.name} to this race?</p>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setChipConfirmationOpen(false);
+                setActiveChip(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="default" onClick={handleConfirmChip}>
+              Yes, Lock Chip to Race
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AuthLayout>
