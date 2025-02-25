@@ -309,6 +309,18 @@ export default function FantasyLeague() {
 
     setHasUnsavedChanges(true);
     if (activeChip) {
+      // Check if any race on the current day already has a chip
+      const hasChipForCurrentDay = selectedDay.races.some(race => race.chip !== undefined && race.id !== raceId);
+      if (hasChipForCurrentDay) {
+        toast({
+          title: "Chip Already Used",
+          description: "You can only use one chip per day. You have already used a chip for this day's selections.",
+          variant: "destructive"
+        });
+        setActiveChip(null); // Reset active chip
+        return;
+      }
+
       // Apply chip to the selection
       const updatedSelections = selections.map(s => 
         s.race_id === raceId ? { ...s, horse_id: horseId, chip: activeChip } : s
@@ -330,29 +342,29 @@ export default function FantasyLeague() {
         c.id === activeChip ? { ...c, used: true } : c
       ));
       setActiveChip(null);
-      
+
+      // Show confirmation toast
+      const chipName = chips.find(c => c.id === activeChip)?.name;
       toast({
         title: "Chip Applied",
-        description: `${chips.find(c => c.id === activeChip)?.name} has been applied to your selection.`,
+        description: `${chipName} has been applied to your selection.`,
       });
-      return;
+    } else {
+      // Regular selection without chip
+      const updatedSelections = selections.map(s => 
+        s.race_id === raceId ? { ...s, horse_id: horseId } : s
+      );
+      setSelections(updatedSelections);
+
+      setFestivalDays(days => days.map(day => ({
+        ...day,
+        races: day.races.map(race => 
+          race.id === raceId 
+            ? { ...race, selected_horse_id: horseId }
+            : race
+        )
+      })));
     }
-
-    // Regular selection handling
-    const updatedSelections = selections.map(s => 
-      s.race_id === raceId ? { ...s, horse_id: horseId } : s
-    );
-    setSelections(updatedSelections);
-
-    // Update race in festival days
-    setFestivalDays(days => days.map(day => ({
-      ...day,
-      races: day.races.map(race => 
-        race.id === raceId 
-          ? { ...race, selected_horse_id: horseId }
-          : race
-      )
-    })));
   };
 
   const getSubmissionStatus = useCallback((day: FestivalDay) => {
@@ -642,7 +654,28 @@ export default function FantasyLeague() {
   };
 
   const handleChipClick = (chipId: ChipType) => {
+    if (!selectedDay) return;
+
+    // Check if any race on the current day already has a chip (including pending selections)
+    const hasChipForCurrentDay = selectedDay.races.some(race => 
+      // Check for submitted chip selections
+      race.chip !== undefined ||
+      // Check for pending chip selections in the selections array
+      selections.some(s => s.race_id === race.id && s.chip !== undefined)
+    );
+
+    if (hasChipForCurrentDay) {
+      toast({
+        title: "Chip Already Used",
+        description: "You can only use one chip per day. You have already used a chip for this day's selections.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if this specific chip has been used
     if (chips.find((c) => c.id === chipId)?.used) return;
+    
     const chip = chips.find((c) => c.id === chipId);
     if (chip) {
       setSelectedChip(chip);
