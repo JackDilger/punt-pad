@@ -232,8 +232,6 @@ export default function FantasyLeague() {
         throw racesError;
       }
 
-      console.log('Races data:', racesData);
-
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {
         console.error("No user ID found");
