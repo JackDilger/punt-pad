@@ -106,6 +106,7 @@ export type Database = {
           day_id: string
           created_at: string
           submitted_at: string | null
+          chip: string | null
         }
         Insert: {
           id?: string
@@ -115,6 +116,7 @@ export type Database = {
           day_id: string
           created_at?: string
           submitted_at?: string | null
+          chip?: string | null
         }
         Update: {
           id?: string
@@ -124,6 +126,7 @@ export type Database = {
           day_id?: string
           created_at?: string
           submitted_at?: string | null
+          chip?: string | null
         }
         Relationships: [
           {
