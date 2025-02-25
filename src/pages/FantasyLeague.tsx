@@ -3,21 +3,15 @@ import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,7 +20,6 @@ import {
 import { Database } from '@/integrations/supabase/types';
 import { ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FestivalDay {
   id: string;
@@ -717,22 +710,27 @@ export default function FantasyLeague() {
 
                         <div className="grid grid-cols-3 gap-4">
                           {chips.map((chip) => (
-                            <Card
-                              key={chip.id}
-                              className={cn(
-                                "cursor-pointer transition-colors hover:bg-accent",
-                                activeChip === chip.id && "bg-accent",
-                                chip.used && "opacity-50 cursor-not-allowed"
-                              )}
-                              onClick={() => handleChipClick(chip.id)}
-                            >
-                              <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
-                                <div>
-                                  <p className="font-medium">{chip.name}</p>
-                                  <p className="text-xs text-muted-foreground">{chip.description}</p>
-                                </div>
-                              </CardContent>
-                            </Card>
+                            <TooltipProvider key={chip.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Card
+                                    className={cn(
+                                      "cursor-pointer transition-colors hover:bg-accent",
+                                      activeChip === chip.id && "bg-accent",
+                                      chip.used && "opacity-50 cursor-not-allowed"
+                                    )}
+                                    onClick={() => handleChipClick(chip.id)}
+                                  >
+                                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                                      <p className="font-medium text-lg">{chip.name}</p>
+                                    </CardContent>
+                                  </Card>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-[200px]">
+                                  <p>{chip.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ))}
                         </div>
 
