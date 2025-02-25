@@ -763,13 +763,26 @@ export default function FantasyLeague() {
                 <TooltipTrigger asChild>
                   <Card
                     className={cn(
-                      "cursor-pointer transition-all",
+                      "cursor-pointer transition-all relative",
                       "hover:bg-accent hover:border-accent-foreground",
                       activeChip === chip.id && "bg-accent border-accent-foreground",
                       chip.used && "opacity-50 cursor-not-allowed hover:border-input hover:bg-transparent"
                     )}
                     onClick={() => handleChipClick(chip.id)}
                   >
+                    {activeChip === chip.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6 hover:bg-muted-foreground/20 hover:text-muted-foreground transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveChip(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                     <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
                       <p className="font-medium text-lg">{chip.name}</p>
                       {activeChip === chip.id && (
