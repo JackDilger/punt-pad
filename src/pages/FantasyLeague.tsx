@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format, isBefore } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -188,6 +188,14 @@ export default function FantasyLeague() {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
+  // Create a reusable function to check if the current time is before the cutoff time
+  const isBeforeCutoffTime = useCallback((day: FestivalDay | null) => {
+    if (!day || !day.cutoff_time) return true;
+    const now = new Date();
+    const cutoffTime = new Date(day.cutoff_time);
+    return isBefore(now, cutoffTime);
+  }, []);
+
   useEffect(() => {
     fetchFestivalDays();
   }, []);
@@ -325,6 +333,16 @@ export default function FantasyLeague() {
 
   const handleHorseSelect = async (raceId: string, horseId: string) => {
     if (!selectedDay) return;
+
+    // Check if past cutoff time
+    if (!isBeforeCutoffTime(selectedDay)) {
+      toast({
+        title: "Selection Not Allowed",
+        description: "The cutoff time for selections has passed.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setHasUnsavedChanges(true);
     if (activeChip) {
@@ -467,9 +485,7 @@ export default function FantasyLeague() {
   const getSubmissionStatus = useCallback((day: FestivalDay) => {
     if (!day) return { canSubmit: false, emptySelections: [], isBeforeCutoff: false };
     
-    const now = new Date();
-    const cutoffTime = day.cutoff_time ? new Date(day.cutoff_time) : null;
-    const isBeforeCutoff = cutoffTime ? isBefore(now, cutoffTime) : true;
+    const isBeforeCutoff = isBeforeCutoffTime(day);
     
     const emptySelections = day.races
       .filter(race => !race.selected_horse_id)
@@ -478,7 +494,7 @@ export default function FantasyLeague() {
     const canSubmit = emptySelections.length === 0 && isBeforeCutoff && !day.selections_submitted;
     
     return { canSubmit, emptySelections, isBeforeCutoff };
-  }, []);
+  }, [isBeforeCutoffTime]);
 
   const getSelectionProgress = useCallback((day: FestivalDay) => {
     if (!day) return 0;
@@ -486,6 +502,33 @@ export default function FantasyLeague() {
     const selectedRaces = day.races.filter(race => race.selected_horse_id).length;
     return (selectedRaces / totalRaces) * 100;
   }, []);
+
+  useEffect(() => {
+    fetchFestivalDays();
+  }, []);
+
+  useEffect(() => {
+    if (festivalDays.length > 0) {
+      if (!selectedDay) {
+        setSelectedDay(festivalDays[0]);
+      }
+      if (!selectedDayTab) {
+        setSelectedDayTab(festivalDays[0].id);
+      }
+    }
+  }, [festivalDays]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const handleSubmitSelections = async () => {
     try {
@@ -813,6 +856,19 @@ export default function FantasyLeague() {
       return;
     }
 
+    // Check if past cutoff time
+    if (!isBeforeCutoffTime(selectedDay)) {
+      toast({
+        title: "Selection Not Allowed",
+        description: "The cutoff time for selections has passed.",
+        variant: "destructive"
+      });
+      setChipConfirmationOpen(false);
+      setPendingChipRace(null);
+      setSelectedChip(null);
+      return;
+    }
+
     const { raceId, horseId } = pendingChipRace;
     const currentChip = selectedChip.id as ChipType;
 
@@ -1005,7 +1061,7 @@ export default function FantasyLeague() {
 
   const renderDayContent = (day: FestivalDay) => {
     const progress = getSelectionProgress(day);
-    const { canSubmit } = getSubmissionStatus(day);
+    const { canSubmit, isBeforeCutoff } = getSubmissionStatus(day);
     
     return (
       <div className="space-y-6">
@@ -1022,11 +1078,24 @@ export default function FantasyLeague() {
             variant="default"
             className="bg-primary hover:bg-primary/90 text-white"
             onClick={() => setSubmissionDialogOpen(true)}
-            disabled={day.selections_submitted}
+            disabled={day.selections_submitted || !isBeforeCutoff}
           >
-            {day.selections_submitted ? "Selections Submitted" : "Submit Selections"}
+            {day.selections_submitted 
+              ? "Selections Submitted" 
+              : !isBeforeCutoff 
+                ? "Cutoff Time Passed" 
+                : "Submit Selections"}
           </Button>
         </div>
+        
+        {!isBeforeCutoff && !day.selections_submitted && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              The cutoff time for this day has passed. You can no longer make or change selections.
+            </AlertDescription>
+          </Alert>
+        )}
         
         <div className="grid grid-cols-3 gap-4">
           {chips.map((chip) => (
@@ -1141,7 +1210,7 @@ export default function FantasyLeague() {
                         <Select
                           value={race.selected_horse_id?.toString() ?? ""}
                           onValueChange={(value) => handleHorseSelect(race.id, value)}
-                          disabled={day.selections_submitted || (activeChip !== null && !selection?.chip)}
+                          disabled={day.selections_submitted || (activeChip !== null && !selection?.chip) || !isBeforeCutoffTime(day)}
                         >
                           <SelectTrigger 
                             className={cn(
@@ -1707,7 +1776,24 @@ export default function FantasyLeague() {
                         className="flex-1 rounded-none data-[state=active]:bg-background flex flex-col items-center space-y-1 py-2"
                         disabled={loading}
                       >
-                        <span>{day.name}</span>
+                        <div className="flex items-center gap-1">
+                          <span>{day.name}</span>
+                          {!isBeforeCutoffTime(day) && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-full">
+                                    <Lock className="h-3 w-3" />
+                                    Locked
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           <span>{format(new Date(day.date), 'EEE do MMM')}</span>
                           {day.cutoff_time && (
