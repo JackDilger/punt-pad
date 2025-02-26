@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format, isBefore } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2, Lock } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2, Lock, Loader2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -23,6 +23,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface FestivalDay {
   id: string;
@@ -87,6 +88,13 @@ interface Chip {
   buttonText: string;
 }
 
+interface LeagueStanding {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  total_points: number;
+}
+
 const toFractionalOdds = (decimal: number | null): string => {
   if (!decimal) return '';
   const odds: Record<number, string> = {
@@ -122,7 +130,6 @@ const toFractionalOdds = (decimal: number | null): string => {
 
 export default function FantasyLeague() {
   const [selectedDay, setSelectedDay] = useState<FestivalDay | null>(null);
-  const [selectedSection, setSelectedSection] = useState<string>("selections");
   const [selectedDayTab, setSelectedDayTab] = useState<string | null>(null);
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
   const [loading, setLoading] = useState(false);
@@ -185,6 +192,9 @@ export default function FantasyLeague() {
   const [selections, setSelections] = useState<Selection[]>([]);
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
+  const [loadingStandings, setLoadingStandings] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("selections");
   const { toast } = useToast();
   const { isAdmin } = useAuth();
 
@@ -222,6 +232,12 @@ export default function FantasyLeague() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (activeTab === "league-table") {
+      fetchLeagueStandings();
+    }
+  }, [activeTab]);
 
   const fetchFestivalDays = async () => {
     setLoading(true);
@@ -321,6 +337,123 @@ export default function FantasyLeague() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLeagueStandings = async () => {
+    setLoadingStandings(true);
+    try {
+      // 1. First fetch all submitted selections to get active users
+      const { data: selectionsData, error: selectionsError } = await supabase
+        .from('fantasy_selections')
+        .select(`
+          id, 
+          user_id, 
+          horse_id, 
+          race_id, 
+          day_id, 
+          submitted_at,
+          chip,
+          fantasy_horses!inner(
+            id,
+            name,
+            points_if_wins,
+            points_if_places
+          ),
+          fantasy_races!inner(
+            id,
+            name,
+            status
+          )
+        `)
+        .not('submitted_at', 'is', null);
+
+      if (selectionsError) throw selectionsError;
+      if (!selectionsData) return;
+
+      // Get unique user IDs who have made selections
+      const activeUserIds = [...new Set(selectionsData.map(s => s.user_id))];
+
+      // 2. Then fetch profiles only for users who have made selections
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', activeUserIds)
+        .order('username');
+
+      if (profilesError) throw profilesError;
+      if (!profilesData) return;
+
+      // Prepare a map to store points by user
+      const pointsByUser: Record<string, { 
+        total_points: number; 
+      }> = {};
+
+      // Initialize with all profiles
+      profilesData.forEach(profile => {
+        pointsByUser[profile.id] = {
+          total_points: 0,
+        };
+      });
+
+      // Calculate points for each selection
+      selectionsData.forEach(selection => {
+        // Only count points for finished races
+        const race = selection.fantasy_races;
+        if (race.status !== 'finished') return;
+
+        const horse = selection.fantasy_horses;
+        const userId = selection.user_id;
+        let points = 0;
+
+        // For demonstration, assume all selected horses win
+        // In a real scenario, you'd check the race result
+        // and award points_if_wins or points_if_places accordingly
+        points = horse.points_if_wins;
+
+        // Apply chip effects
+        if (selection.chip) {
+          switch (selection.chip) {
+            case 'superBoost':
+              points *= 10; // 10x points
+              break;
+            case 'doubleChance':
+              // For double chance, we'd normally check if it came second
+              // and award win points, but here we're just assuming it wins
+              break;
+            case 'tripleThreat':
+              points *= 3; // 3x points (or -3x if lost)
+              break;
+          }
+        }
+
+        // Add points to user's total
+        if (pointsByUser[userId]) {
+          pointsByUser[userId].total_points += points;
+        }
+      });
+
+      // Convert to array format needed for display
+      const standings: LeagueStanding[] = profilesData.map(profile => ({
+        user_id: profile.id,
+        username: profile.username || 'Unknown Player',
+        avatar_url: profile.avatar_url,
+        total_points: pointsByUser[profile.id]?.total_points || 0,
+      }));
+
+      // Sort by points (highest first)
+      standings.sort((a, b) => b.total_points - a.total_points);
+
+      setLeagueStandings(standings);
+    } catch (error) {
+      console.error('Error fetching league standings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load league standings. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingStandings(false);
     }
   };
 
@@ -1628,18 +1761,14 @@ export default function FantasyLeague() {
       console.log("DEBUG - All user selections:", data);
       
       // Count selections by day
-      const selectionsByDay: Record<string, { total: number, withChip: number }> = {};
+      const selectionsByDay: Record<string, { total: number }> = {};
       
       data?.forEach(selection => {
         if (!selectionsByDay[selection.day_id]) {
-          selectionsByDay[selection.day_id] = { total: 0, withChip: 0 };
+          selectionsByDay[selection.day_id] = { total: 0 };
         }
         
         selectionsByDay[selection.day_id].total++;
-        
-        if (selection.chip) {
-          selectionsByDay[selection.day_id].withChip++;
-        }
       });
       
       console.log("DEBUG - Selections by day:", selectionsByDay);
@@ -1648,7 +1777,7 @@ export default function FantasyLeague() {
       if (data && data.length > 0) {
         const dayInfo = Object.entries(selectionsByDay).map(([dayId, counts]) => {
           const day = festivalDays.find(d => d.id === dayId);
-          return `Day ${day?.day_number || '?'}: ${counts.total} selections (${counts.withChip} with chip)`;
+          return `Day ${day?.day_number || '?'}: ${counts.total} selections`;
         }).join('\n');
         
         toast({
@@ -1741,7 +1870,11 @@ export default function FantasyLeague() {
           </div>
         </div>
 
-        <Tabs defaultValue={festivalDays[0]?.id} className="w-full" value={selectedSection} onValueChange={setSelectedSection}>
+        <Tabs 
+          defaultValue="selections" 
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value)}
+        >
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger 
               value="selections"
@@ -1837,8 +1970,78 @@ export default function FantasyLeague() {
                 <p className="text-sm text-muted-foreground">See how you rank against other players</p>
               </CardHeader>
               <CardContent>
-                {/* League Table content will go here */}
-                <div className="text-muted-foreground">Coming soon...</div>
+                {loadingStandings ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">Rankings</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchLeagueStandings()}
+                        className="flex items-center gap-1"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Refresh
+                      </Button>
+                    </div>
+                    
+                    {leagueStandings.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No standings available yet.</p>
+                        <p className="text-sm">Standings will appear once races are completed and points are awarded.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-muted/50 border-b">
+                              <th className="text-left p-2 pl-4 font-medium">Rank</th>
+                              <th className="text-left p-2 font-medium">Player</th>
+                              <th className="text-right p-2 font-medium">Points</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {leagueStandings.map((standing, index) => (
+                              <tr key={standing.user_id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                                <td className="p-2 pl-4">
+                                  {index === 0 ? (
+                                    <span className="inline-flex items-center justify-center bg-yellow-400 text-yellow-950 w-6 h-6 rounded-full font-bold">1</span>
+                                  ) : index === 1 ? (
+                                    <span className="inline-flex items-center justify-center bg-gray-300 text-gray-700 w-6 h-6 rounded-full font-bold">2</span>
+                                  ) : index === 2 ? (
+                                    <span className="inline-flex items-center justify-center bg-amber-700 text-amber-100 w-6 h-6 rounded-full font-bold">3</span>
+                                  ) : (
+                                    <span className="inline-flex items-center justify-center text-muted-foreground w-6 h-6">{index + 1}</span>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  <div className="flex items-center gap-2">
+                                    {standing.avatar_url ? (
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarImage src={standing.avatar_url} alt={standing.username} />
+                                        <AvatarFallback>{standing.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                      </Avatar>
+                                    ) : (
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarFallback>{standing.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                      </Avatar>
+                                    )}
+                                    {standing.username}
+                                  </div>
+                                </td>
+                                <td className="p-2 text-right font-medium">{standing.total_points}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1852,9 +2055,10 @@ export default function FantasyLeague() {
               Rules & Points
             </DialogTitle>
             <DialogDescription className="text-center pt-4">
-              Learn how the Fantasy League works and how points are awarded
+              Learn how to play and earn points in the fantasy horse racing league
             </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4">
             <div>
               <h3 className="font-medium mb-2">How it Works</h3>
@@ -1930,7 +2134,7 @@ export default function FantasyLeague() {
           <div className="space-y-4">
             <div>
               <h3 className="font-medium mb-2">How It Works:</h3>
-              <ul className="list-disc pl-5 space-y-2">
+              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
                 {selectedChip?.howItWorks.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
