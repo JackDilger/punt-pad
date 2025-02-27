@@ -975,6 +975,16 @@ export default function FantasyLeague() {
 
     console.log("DEBUG - handleChipClick - selectedDay:", selectedDay);
 
+    // Check if selections for this day have already been submitted
+    if (selectedDay.selections_submitted) {
+      toast({
+        title: "Selections Already Submitted",
+        description: "You cannot apply chips to selections that have already been submitted.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // First check if this specific chip is already used
     const isChipAlreadyUsed = chips.find(c => c.id === chipId)?.used;
     if (isChipAlreadyUsed) {
