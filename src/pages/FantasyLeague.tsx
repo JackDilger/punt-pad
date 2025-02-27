@@ -423,37 +423,19 @@ export default function FantasyLeague() {
   const fetchLeagueStandings = async () => {
     setLoadingStandings(true);
     try {
-      // 1. First fetch all submitted selections to get active users
-      const { data: selectionsData, error: selectionsError } = await supabase
-        .from('fantasy_selections')
+      // 1. Fetch league standings from the database
+      const { data: standingsData, error: standingsError } = await supabase
+        .from('fantasy_league_standings')
         .select(`
-          id, 
-          user_id, 
-          horse_id, 
-          race_id, 
-          day_id, 
-          submitted_at,
-          chip,
-          fantasy_horses!inner(
-            id,
-            name,
-            fixed_odds
-          ),
-          fantasy_races!inner(
-            id,
-            name,
-            status
-          )
+          id,
+          user_id,
+          total_points
         `)
-        .not('submitted_at', 'is', null);
-
-      if (selectionsError) throw selectionsError;
-      if (!selectionsData) return;
-
-      // Get unique user IDs who have made selections
-      const activeUserIds = [...new Set(selectionsData.map(s => s.user_id))];
-
-      // 2. Then fetch all profiles
+        .order('total_points', { ascending: false });
+      
+      if (standingsError) throw standingsError;
+      
+      // 2. Fetch profiles to get usernames and team names
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, username, avatar_url, team_name')
@@ -461,67 +443,31 @@ export default function FantasyLeague() {
 
       if (profilesError) throw profilesError;
       if (!profilesData) return;
+      
+      console.log("Fetched league standings:", standingsData);
 
-      // Prepare a map to store points by user
-      const pointsByUser: Record<string, { 
-        total_points: number; 
-      }> = {};
-
-      // Initialize with all profiles
-      profilesData.forEach(profile => {
-        pointsByUser[profile.id] = {
-          total_points: 0,
-        };
-      });
-
-      // Calculate points for each selection
-      selectionsData.forEach(selection => {
-        // Only count points for finished races
-        const race = selection.fantasy_races;
-        if (race.status !== 'finished') return;
-
-        const horse = selection.fantasy_horses;
-        const userId = selection.user_id;
-        let points = 0;
-
-        // For demonstration, assume all selected horses win
-        // In a real scenario, you'd check the race result
-        // and award points_if_wins or points_if_places accordingly
-        points = 15; // Default points for a win
-
-        // Apply chip effects
-        if (selection.chip) {
-          switch (selection.chip) {
-            case 'superBoost':
-              points *= 10; // 10x points
-              break;
-            case 'doubleChance':
-              // For double chance, we'd normally check if it came second
-              // and award win points, but here we're just assuming it wins
-              break;
-            case 'tripleThreat':
-              points *= 3; // 3x points (or -3x if lost)
-              break;
-          }
-        }
-
-        // Add points to user's total
-        if (pointsByUser[userId]) {
-          pointsByUser[userId].total_points += points;
-        }
-      });
-
-      // Convert to array format needed for display
-      const standings: LeagueStanding[] = profilesData.filter(profile => profile.team_name !== null).map(profile => ({
-        user_id: profile.id,
-        username: profile.username,
-        avatar_url: profile.avatar_url,
-        team_name: profile.team_name,
-        total_points: pointsByUser[profile.id]?.total_points || 0,
-      }));
+      // Combine data to build standings with user information
+      const standings: LeagueStanding[] = [];
+      
+      // Only include profiles with team names
+      const profilesWithTeams = profilesData.filter(profile => profile.team_name !== null);
+      
+      for (const profile of profilesWithTeams) {
+        // Find this user's standing
+        const userStanding = standingsData?.find(s => s.user_id === profile.id);
+        
+        standings.push({
+          user_id: profile.id,
+          username: profile.username,
+          avatar_url: profile.avatar_url,
+          team_name: profile.team_name,
+          total_points: userStanding?.total_points || 0,
+        });
+      }
 
       // Sort by points (highest first)
       standings.sort((a, b) => b.total_points - a.total_points);
+      console.log("Final standings:", standings);
 
       setLeagueStandings(standings);
     } catch (error) {
