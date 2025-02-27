@@ -242,8 +242,6 @@ export type Database = {
           race_id: string
           name: string | null
           fixed_odds: number | null
-          points_if_wins: number | null
-          points_if_places: number | null
           created_at: string
           updated_at: string
         }
@@ -252,8 +250,6 @@ export type Database = {
           race_id: string
           name?: string | null
           fixed_odds?: number | null
-          points_if_wins?: number | null
-          points_if_places?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -262,8 +258,6 @@ export type Database = {
           race_id?: string
           name?: string | null
           fixed_odds?: number | null
-          points_if_wins?: number | null
-          points_if_places?: number | null
           created_at?: string
           updated_at?: string
         }
