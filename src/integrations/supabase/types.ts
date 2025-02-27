@@ -285,6 +285,7 @@ export type Database = {
           updated_at: string
           username: string | null
           role: 'admin' | 'user' | null
+          team_name: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -293,6 +294,7 @@ export type Database = {
           updated_at?: string
           username?: string | null
           role?: 'admin' | 'user' | null
+          team_name?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -301,6 +303,7 @@ export type Database = {
           updated_at?: string
           username?: string | null
           role?: 'admin' | 'user' | null
+          team_name?: string | null
         }
         Relationships: []
       }

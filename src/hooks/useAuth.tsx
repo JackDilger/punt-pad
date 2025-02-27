@@ -6,12 +6,14 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  user: any | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
   session: null,
   isLoading: true,
   isAdmin: false,
+  user: null,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -68,7 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [session]);
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, isAdmin }}>
+    <AuthContext.Provider value={{ session, isLoading, isAdmin, user: session?.user }}>
       {children}
     </AuthContext.Provider>
   );
