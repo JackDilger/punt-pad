@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format, isBefore } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2, Lock, Loader2, RefreshCw } from "lucide-react";
+import { X, Plus, Pencil, HelpCircle, Rocket, Target, Scale, AlertTriangle, Clock, CheckCircle2, Lock, Loader2, RefreshCw, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -18,12 +18,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Database } from '@/integrations/supabase/types';
-import { ChevronDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { UpdateLeagueTable } from '@/components/UpdateLeagueTable';
 
 interface FestivalDay {
   id: string;
@@ -714,11 +714,16 @@ export default function FantasyLeague() {
     
     const isBeforeCutoff = isBeforeCutoffTime(day);
     
-    const emptySelections = day.races
-      .filter(race => !race.selected_horse_id)
-      .map(race => race.name);
+    // Only show empty selections if we have at least one selection
+    const hasAnySelections = day.races.some(race => race.selected_horse_id);
     
-    const canSubmit = emptySelections.length === 0 && isBeforeCutoff && !day.selections_submitted;
+    const emptySelections = hasAnySelections 
+      ? day.races
+          .filter(race => !race.selected_horse_id)
+          .map(race => race.name)
+      : [];
+    
+    const canSubmit = hasAnySelections && emptySelections.length === 0 && isBeforeCutoff && !day.selections_submitted;
     
     return { canSubmit, emptySelections, isBeforeCutoff };
   }, [isBeforeCutoffTime]);
@@ -1199,11 +1204,31 @@ export default function FantasyLeague() {
     }
   };
 
+  const openSubmissionDialog = () => {
+    // Force a state refresh by updating selectedDay from festivalDays
+    if (selectedDay) {
+      const currentDay = festivalDays.find(day => day.id === selectedDay.id);
+      if (currentDay) {
+        setSelectedDay(currentDay);
+      }
+    }
+    setSubmissionDialogOpen(true);
+  };
+
   const renderSubmissionDialog = () => {
     if (!selectedDay) return null;
 
-    const { canSubmit, emptySelections, isBeforeCutoff } = getSubmissionStatus(selectedDay);
-    const progress = getSelectionProgress(selectedDay);
+    // Calculate progress and empty selections directly here to ensure latest state
+    const totalRaces = selectedDay.races.length;
+    const selectedRaces = selectedDay.races.filter(race => race.selected_horse_id).length;
+    const progress = totalRaces > 0 ? (selectedRaces / totalRaces) * 100 : 0;
+
+    // Get empty races for display
+    const emptyRaces = selectedDay.races
+      .filter(race => !race.selected_horse_id)
+      .map(race => race.name);
+
+    const isBeforeCutoff = isBeforeCutoffTime(selectedDay);
     const cutoffTime = selectedDay.cutoff_time ? format(new Date(selectedDay.cutoff_time), 'h:mm a') : 'Not set';
 
     return (
@@ -1220,20 +1245,42 @@ export default function FantasyLeague() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span>Selection Progress</span>
-                <span>{Math.round(progress)}%</span>
+                <span className="text-sm font-medium">{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} />
             </div>
 
-            {emptySelections.length > 0 && (
+            {selectedRaces > 0 && emptyRaces.length > 0 && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  You have {emptySelections.length} races without selections:
+                  You have {emptyRaces.length} races without selections:
                   <ul className="list-disc list-inside mt-2">
-                    {emptySelections.map(race => (
+                    {emptyRaces.map(race => (
                       <li key={race}>{race}</li>
                     ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {selectedRaces > 0 && (
+              <Alert>
+                <Check className="h-4 w-4" />
+                <AlertDescription>
+                  Selections made for {selectedRaces} out of {totalRaces} races:
+                  <ul className="list-disc list-inside mt-2">
+                    {selectedDay.races
+                      .filter(race => race.selected_horse_id)
+                      .map(race => {
+                        const selectedHorse = race.horses.find(h => h.id === race.selected_horse_id);
+                        return (
+                          <li key={race.id}>
+                            {race.name} - {selectedHorse?.name}
+                            {race.chip && ` (${race.chip})`}
+                          </li>
+                        );
+                      })}
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -1252,31 +1299,30 @@ export default function FantasyLeague() {
                 </AlertDescription>
               </Alert>
             )}
-
-            {selectedDay.selections_submitted && (
-              <Alert>
-                <CheckCircle2 className="h-4 w-4" />
-                <AlertDescription>
-                  You have already submitted selections for this day.
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="sm:justify-between">
             <Button
-              variant="outline"
+              type="button"
+              variant="secondary"
               onClick={() => setSubmissionDialogOpen(false)}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
-              variant="default"
-              className="text-white bg-primary hover:bg-primary/90"
+              type="button"
               onClick={handleSubmitSelections}
-              disabled={!canSubmit || isSubmitting}
+              disabled={isSubmitting || !selectedRaces || emptyRaces.length > 0 || !isBeforeCutoff || selectedDay.selections_submitted}
             >
-              {isSubmitting ? "Submitting..." : "Submit Selections"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Selections'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1302,7 +1348,7 @@ export default function FantasyLeague() {
           <Button
             variant="default"
             className="bg-primary hover:bg-primary/90 text-white"
-            onClick={() => setSubmissionDialogOpen(true)}
+            onClick={openSubmissionDialog}
             disabled={day.selections_submitted || !isBeforeCutoff}
           >
             {day.selections_submitted 
@@ -1894,55 +1940,45 @@ export default function FantasyLeague() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Cheltenham Fantasy League 2025</h1>
           <div className="flex gap-2">
-            {process.env.NODE_ENV === 'development' && (
-              <Button 
-                variant="outline" 
-                onClick={deleteAllSelections} 
-                size="sm"
-                className="text-xs"
-              >
-                Delete All Selections (Dev)
-              </Button>
-            )}
-            {process.env.NODE_ENV === 'development' && (
-              <Button 
-                variant="outline" 
-                onClick={clearChipData} 
-                size="sm"
-                className="text-xs"
-              >
-                Clear Chip Data (Dev)
-              </Button>
-            )}
-            {process.env.NODE_ENV === 'development' && (
-              <Button 
-                variant="outline" 
-                onClick={forceCheckChipData} 
-                size="sm"
-                className="text-xs"
-              >
-                Force Check Chip Data (Dev)
-              </Button>
-            )}
-            {process.env.NODE_ENV === 'development' && (
-              <Button 
-                variant="outline" 
-                onClick={fixDay1ChipIssue} 
-                size="sm"
-                className="text-xs"
-              >
-                Fix Day 1 Chip Issue (Dev)
-              </Button>
-            )}
-            {process.env.NODE_ENV === 'development' && (
-              <Button 
-                variant="outline" 
-                onClick={checkAllSelections} 
-                size="sm"
-                className="text-xs"
-              >
-                Check All Selections (Dev)
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRulesOpen(true)}
+            >
+              Rules & Points
+            </Button>
+            {isAdmin && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deleteAllSelections}
+                >
+                  Delete All Selections (Dev)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearChipData}
+                >
+                  Clear Chip Data (Dev)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fixDay1ChipIssue}
+                >
+                  Fix Day 1 Chip Issue
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={forceCheckChipData}
+                >
+                  Force Check Chip Data
+                </Button>
+                <UpdateLeagueTable onUpdate={fetchLeagueStandings} />
+              </>
             )}
             <Button
               variant="outline"
@@ -1951,14 +1987,6 @@ export default function FantasyLeague() {
               className="text-xs"
             >
               Refresh Data
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setRulesOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-white"
-            >
-              <HelpCircle className="w-4 h-4 mr-2" />
-              Rules & Points
             </Button>
           </div>
         </div>
