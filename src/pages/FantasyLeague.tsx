@@ -59,6 +59,7 @@ interface Horse {
   race_id: string;
   name: string;
   fixed_odds: number;
+  result: 'win' | 'place' | 'loss' | null;
   created_at: string;
   updated_at: string;
   _delete?: boolean;
@@ -92,6 +93,13 @@ interface LeagueStanding {
   avatar_url: string | null;
   total_points: number;
   team_name: string | null;
+}
+
+interface EditingValues {
+  name: string;
+  race_time: string;
+  number_of_places: number;
+  horses: Horse[];
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -134,11 +142,7 @@ export default function FantasyLeague() {
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
-  const [editingValues, setEditingValues] = useState<{
-    name: string;
-    race_time: string;
-    horses: Horse[];
-  } | null>(null);
+  const [editingValues, setEditingValues] = useState<EditingValues | null>(null);
   const [saving, setSaving] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [chipModalOpen, setChipModalOpen] = useState(false);
@@ -815,6 +819,7 @@ export default function FantasyLeague() {
     setEditingValues({
       name: race.name,
       race_time: format(new Date(race.race_time), 'HH:mm'),
+      number_of_places: race.number_of_places,
       horses: [...race.horses]
     });
   };
@@ -854,6 +859,7 @@ export default function FantasyLeague() {
           race_id: editingRaceId!,
           name: '',
           fixed_odds: 0,
+          result: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -904,7 +910,8 @@ export default function FantasyLeague() {
         .from('fantasy_races')
         .update({
           name: editingValues.name,
-          race_time: currentDate.toISOString()
+          race_time: currentDate.toISOString(),
+          number_of_places: editingValues.number_of_places
         })
         .eq('id', raceId);
 
@@ -933,7 +940,8 @@ export default function FantasyLeague() {
           .insert({
             race_id: raceId,
             name: horse.name || '',
-            fixed_odds: horse.fixed_odds || 0
+            fixed_odds: horse.fixed_odds || 0,
+            result: horse.result
           });
 
         if (insertError) throw insertError;
@@ -946,7 +954,8 @@ export default function FantasyLeague() {
           .from('fantasy_horses')
           .update({
             name: horse.name,
-            fixed_odds: horse.fixed_odds
+            fixed_odds: horse.fixed_odds,
+            result: horse.result
           })
           .eq('id', horse.id);
 
@@ -1454,6 +1463,16 @@ export default function FantasyLeague() {
                   <CardContent>
                     {editingRaceId === race.id && editingValues && (
                       <div className="border-t pt-4 mt-4">
+                        <div className="mb-4">
+                          <Label>Number of Places</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={editingValues.number_of_places}
+                            onChange={(e) => setEditingValues({...editingValues, number_of_places: parseInt(e.target.value) || 1})}
+                            className="mt-1 w-full md:w-1/3"
+                          />
+                        </div>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium">Horses</h4>
                           <Button
@@ -1473,34 +1492,58 @@ export default function FantasyLeague() {
                               className="mb-2 rounded-lg bg-muted/50 p-4 flex items-center justify-between"
                             >
                               <div className="flex-1 mr-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex-1">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Horse Name</Label>
                                     <Input
                                       value={horse.name}
                                       onChange={(e) =>
                                         handleHorseFieldChange(horse.id, 'name', e.target.value)
                                       }
-                                      className="mb-2"
+                                      className="mt-1"
                                       placeholder="Horse Name"
                                     />
-                                    <div className="grid grid-cols-3 gap-4">
-                                      <div>
-                                        <Label>Fixed Odds</Label>
-                                        <Input
-                                          type="number"
-                                          value={horse.fixed_odds}
-                                          onChange={(e) =>
-                                            handleHorseFieldChange(
-                                              horse.id,
-                                              'fixed_odds',
-                                              parseFloat(e.target.value)
-                                            )
-                                          }
-                                          className="mt-1"
-                                          placeholder="Fixed Odds"
-                                        />
-                                      </div>
-                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label>Fixed Odds</Label>
+                                    <Input
+                                      type="number"
+                                      value={horse.fixed_odds}
+                                      onChange={(e) =>
+                                        handleHorseFieldChange(
+                                          horse.id,
+                                          'fixed_odds',
+                                          parseFloat(e.target.value)
+                                        )
+                                      }
+                                      className="mt-1"
+                                      placeholder="Fixed Odds"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Result</Label>
+                                    <Select
+                                      value={horse.result || 'null'}
+                                      onValueChange={(value) =>
+                                        handleHorseFieldChange(
+                                          horse.id,
+                                          'result',
+                                          value === 'null' ? null : value
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger className="mt-1">
+                                        <SelectValue placeholder="Select result" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="null">No result</SelectItem>
+                                        <SelectItem value="win">Win</SelectItem>
+                                        <SelectItem value="place">Place</SelectItem>
+                                        <SelectItem value="loss">Loss</SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                               </div>
@@ -1591,13 +1634,13 @@ export default function FantasyLeague() {
           chip: undefined
         }))
       })));
-      
+
       // Reset chip usage state
       setChips(prevChips => prevChips.map(c => ({
         ...c,
         used: false
       })));
-      
+
       toast({
         title: "Debug: Selections Deleted",
         description: "All selections have been deleted for testing purposes.",
@@ -1631,19 +1674,19 @@ export default function FantasyLeague() {
           chip: undefined
         }))
       })));
-      
+
       // Reset chip usage state
       setChips(prevChips => prevChips.map(c => ({
         ...c,
         used: false
       })));
-      
+
       // Clear selections from local state
       setSelections(prev => prev.map(s => ({
         ...s,
         chip: undefined
       })));
-      
+
       // Clear chip data from selections in the database
       const { error } = await supabase
         .from('fantasy_selections')
@@ -1764,7 +1807,7 @@ export default function FantasyLeague() {
         }
         return day;
       }));
-      
+
       // Update local selections state
       setSelections(prev => prev.map(s => {
         if (s.day_id === day1.id) {
@@ -1775,7 +1818,7 @@ export default function FantasyLeague() {
         }
         return s;
       }));
-      
+
       toast({
         title: "Day 1 Chip Issue Fixed",
         description: "Chip data for day 1 has been cleared.",
