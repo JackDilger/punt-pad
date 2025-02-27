@@ -30,6 +30,7 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
 
   const calculatePoints = (result: 'win' | 'place' | 'loss' | null, odds: number, chip: 'superBoost' | 'doubleChance' | 'tripleThreat' | null = null) => {
     console.log('Calculating points for:', { result, odds, chip });
+    console.log('Chip type:', chip, 'typeof chip:', typeof chip);
     
     if (!result) return 0;
     
@@ -139,6 +140,10 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
 
       console.log('Found selections:', selections);
 
+      // Debug log all selections with chips
+      const selectionsWithChips = selections.filter(s => s.chip !== null);
+      console.log('Selections with chips:', selectionsWithChips);
+
       // 2. Calculate points for each user
       const userPoints: { [key: string]: number } = {};
       
@@ -149,6 +154,14 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
         
         // Debug the raw value to understand what's happening
         console.log('Raw fixed_odds value:', horse.fixed_odds, 'Type:', typeof horse.fixed_odds);
+        console.log('Processing selection:', { 
+          id: selection.id, 
+          user_id: selection.user_id,
+          horse_id: selection.horse_id,
+          chip: selection.chip,
+          horse_name: horse.name,
+          result: horse.result
+        });
         
         // Convert from fractional ratio to decimal odds if needed
         // E.g., If odds of "1/2" are stored as 0.5 (ratio), convert to 1.5 (decimal)
