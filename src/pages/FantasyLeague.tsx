@@ -59,8 +59,6 @@ interface Horse {
   race_id: string;
   name: string;
   fixed_odds: number;
-  points_if_wins: number;
-  points_if_places: number;
   created_at: string;
   updated_at: string;
   _delete?: boolean;
@@ -435,8 +433,7 @@ export default function FantasyLeague() {
           fantasy_horses!inner(
             id,
             name,
-            points_if_wins,
-            points_if_places
+            fixed_odds
           ),
           fantasy_races!inner(
             id,
@@ -486,7 +483,7 @@ export default function FantasyLeague() {
         // For demonstration, assume all selected horses win
         // In a real scenario, you'd check the race result
         // and award points_if_wins or points_if_places accordingly
-        points = horse.points_if_wins;
+        points = 15; // Default points for a win
 
         // Apply chip effects
         if (selection.chip) {
@@ -857,8 +854,6 @@ export default function FantasyLeague() {
           race_id: editingRaceId!,
           name: '',
           fixed_odds: 0,
-          points_if_wins: 0,
-          points_if_places: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -938,9 +933,7 @@ export default function FantasyLeague() {
           .insert({
             race_id: raceId,
             name: horse.name || '',
-            fixed_odds: horse.fixed_odds || 0,
-            points_if_wins: horse.points_if_wins || 0,
-            points_if_places: horse.points_if_places || 0
+            fixed_odds: horse.fixed_odds || 0
           });
 
         if (insertError) throw insertError;
@@ -953,9 +946,7 @@ export default function FantasyLeague() {
           .from('fantasy_horses')
           .update({
             name: horse.name,
-            fixed_odds: horse.fixed_odds,
-            points_if_wins: horse.points_if_wins,
-            points_if_places: horse.points_if_places
+            fixed_odds: horse.fixed_odds
           })
           .eq('id', horse.id);
 
@@ -1507,38 +1498,6 @@ export default function FantasyLeague() {
                                           }
                                           className="mt-1"
                                           placeholder="Fixed Odds"
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label>Points if Wins</Label>
-                                        <Input
-                                          type="number"
-                                          value={horse.points_if_wins}
-                                          onChange={(e) =>
-                                            handleHorseFieldChange(
-                                              horse.id,
-                                              'points_if_wins',
-                                              parseFloat(e.target.value)
-                                            )
-                                          }
-                                          className="mt-1"
-                                          placeholder="Points if Wins"
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label>Points if Places</Label>
-                                        <Input
-                                          type="number"
-                                          value={horse.points_if_places}
-                                          onChange={(e) =>
-                                            handleHorseFieldChange(
-                                              horse.id,
-                                              'points_if_places',
-                                              parseFloat(e.target.value)
-                                            )
-                                          }
-                                          className="mt-1"
-                                          placeholder="Points if Places"
                                         />
                                       </div>
                                     </div>
