@@ -1624,6 +1624,19 @@ export default function FantasyLeague() {
         return;
       }
       
+      // Reset league standings points to 0 for this user
+      const { error: standingsError } = await supabase
+        .from('fantasy_league_standings')
+        .update({ total_points: 0, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+        
+      if (standingsError) {
+        console.error("Error resetting standings:", standingsError);
+        // Continue anyway as the selections have been deleted
+      } else {
+        console.log("League standings reset to 0 points");
+      }
+      
       // Clear local state
       setSelections([]);
       
@@ -1650,6 +1663,9 @@ export default function FantasyLeague() {
       
       // Refresh data
       await fetchFestivalDays();
+      
+      // Refresh league standings
+      fetchLeagueStandings();
     } catch (error) {
       console.error("Error in deleteAllSelections:", error);
     }
@@ -2078,7 +2094,7 @@ export default function FantasyLeague() {
                             <tr className="bg-muted/50 border-b">
                               <th className="text-left p-2 pl-4 font-medium">Rank</th>
                               <th className="text-left p-2 font-medium">Team</th>
-                              <th className="text-right p-2 font-medium">Points</th>
+                              <th className="text-left p-2 font-medium">Points</th>
                             </tr>
                           </thead>
                           <tbody>
