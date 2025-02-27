@@ -93,6 +93,7 @@ interface LeagueStanding {
   username: string;
   avatar_url: string | null;
   total_points: number;
+  team_name: string | null;
 }
 
 const toFractionalOdds = (decimal: number | null): string => {
@@ -146,7 +147,7 @@ export default function FantasyLeague() {
   const [selectedChip, setSelectedChip] = useState<Chip | null>(null);
   const [activeChip, setActiveChip] = useState<ChipType | null>(null);
   const [chipConfirmationOpen, setChipConfirmationOpen] = useState(false);
-  const [pendingChipRace, setPendingChipRace] = useState<{raceId: string, horseId: string} | null>(null);
+  const [pendingChipRaceId, setPendingChipRaceId] = useState<string | null>(null);
   const [chips, setChips] = useState<Chip[]>([
     {
       id: 'superBoost',
@@ -195,8 +196,12 @@ export default function FantasyLeague() {
   const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
   const [loadingStandings, setLoadingStandings] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("selections");
+  const [teamNameRequired, setTeamNameRequired] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [userProfile, setUserProfile] = useState<any>(null);
+  
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   // Create a reusable function to check if the current time is before the cutoff time
   const isBeforeCutoffTime = useCallback((day: FestivalDay | null) => {
@@ -238,6 +243,66 @@ export default function FantasyLeague() {
       fetchLeagueStandings();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (user) {
+      fetchFestivalDays();
+      fetchLeagueStandings();
+      checkUserTeamName();
+    }
+  }, [user]);
+
+  const checkUserTeamName = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('team_name')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      
+      setUserProfile(data);
+      if (!data.team_name) {
+        setTeamNameRequired(true);
+      } else {
+        setTeamName(data.team_name);
+      }
+    } catch (error) {
+      console.error('Error checking team name:', error);
+    }
+  };
+
+  const saveTeamName = async () => {
+    if (!user || !teamName.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ team_name: teamName.trim() })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      setTeamNameRequired(false);
+      toast({
+        title: "Team name saved",
+        description: "Welcome to the Fantasy League!",
+      });
+      
+      // Refresh standings to show the new team name
+      fetchLeagueStandings();
+    } catch (error) {
+      console.error('Error saving team name:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save team name. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchFestivalDays = async () => {
     setLoading(true);
@@ -374,11 +439,10 @@ export default function FantasyLeague() {
       // Get unique user IDs who have made selections
       const activeUserIds = [...new Set(selectionsData.map(s => s.user_id))];
 
-      // 2. Then fetch profiles only for users who have made selections
+      // 2. Then fetch all profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
-        .in('id', activeUserIds)
+        .select('id, username, avatar_url, team_name')
         .order('username');
 
       if (profilesError) throw profilesError;
@@ -434,10 +498,11 @@ export default function FantasyLeague() {
       });
 
       // Convert to array format needed for display
-      const standings: LeagueStanding[] = profilesData.map(profile => ({
+      const standings: LeagueStanding[] = profilesData.filter(profile => profile.team_name !== null).map(profile => ({
         user_id: profile.id,
-        username: profile.username || 'Unknown Player',
+        username: profile.username,
         avatar_url: profile.avatar_url,
+        team_name: profile.team_name,
         total_points: pointsByUser[profile.id]?.total_points || 0,
       }));
 
@@ -484,7 +549,7 @@ export default function FantasyLeague() {
       if (isChipAlreadyUsed) {
         toast({
           title: "Chip Already Used",
-          description: "You have already used this chip. Each chip can only be used once during the festival.",
+          description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
           variant: "destructive"
         });
         setActiveChip(null); // Reset active chip
@@ -528,7 +593,7 @@ export default function FantasyLeague() {
       setSelectedChip(chipDetails || null);
       
       // Show confirmation dialog before applying chip
-      setPendingChipRace({ raceId, horseId });
+      setPendingChipRaceId(raceId);
       setChipConfirmationOpen(true);
     } else {
       // Regular selection without chip
@@ -984,33 +1049,33 @@ export default function FantasyLeague() {
   };
 
   const handleConfirmChip = async () => {
-    if (!pendingChipRace || !selectedChip || !selectedDay) {
+    if (!pendingChipRaceId || !selectedChip || !selectedDay) {
       setChipConfirmationOpen(false);
       return;
     }
 
-    // Check if past cutoff time
+    // Check if cutoff time has passed
     if (!isBeforeCutoffTime(selectedDay)) {
       toast({
-        title: "Selection Not Allowed",
+        title: "Selections closed",
         description: "The cutoff time for selections has passed.",
         variant: "destructive"
       });
       setChipConfirmationOpen(false);
-      setPendingChipRace(null);
+      setPendingChipRaceId(null);
       setSelectedChip(null);
       return;
     }
 
-    const { raceId, horseId } = pendingChipRace;
+    const raceId = pendingChipRaceId;
     const currentChip = selectedChip.id as ChipType;
 
     try {
-      console.log("Starting chip application process", { raceId, horseId, chip: currentChip });
+      console.log("Starting chip application process", { raceId, chip: currentChip });
       
       // Apply chip to the selection
       const updatedSelections = selections.map(s => 
-        s.race_id === raceId ? { ...s, horse_id: horseId, chip: currentChip } : s
+        s.race_id === raceId ? { ...s, chip: currentChip } : s
       );
       setSelections(updatedSelections);
 
@@ -1019,7 +1084,7 @@ export default function FantasyLeague() {
         ...day,
         races: day.races.map(race => 
           race.id === raceId 
-            ? { ...race, selected_horse_id: horseId, chip: currentChip }
+            ? { ...race, chip: currentChip }
             : race
         )
       })));
@@ -1043,7 +1108,6 @@ export default function FantasyLeague() {
       console.log("Database operation details:", { 
         existingSelection, 
         raceId, 
-        horseId, 
         chip: currentChip,
         dayId: selectedDay.id
       });
@@ -1053,7 +1117,6 @@ export default function FantasyLeague() {
         const { error } = await supabase
           .from('fantasy_selections')
           .update({ 
-            horse_id: horseId,
             chip: currentChip
           })
           .eq('id', existingSelection.id);
@@ -1072,8 +1135,8 @@ export default function FantasyLeague() {
           .from('fantasy_selections')
           .insert({
             user_id: user.id,
+            horse_id: "placeholder",
             race_id: raceId,
-            horse_id: horseId,
             day_id: selectedDay.id,
             chip: currentChip
           });
@@ -1102,7 +1165,7 @@ export default function FantasyLeague() {
       });
     } finally {
       setChipConfirmationOpen(false);
-      setPendingChipRace(null);
+      setPendingChipRaceId(null);
       setSelectedChip(null);
     }
   };
@@ -2000,7 +2063,7 @@ export default function FantasyLeague() {
                           <thead>
                             <tr className="bg-muted/50 border-b">
                               <th className="text-left p-2 pl-4 font-medium">Rank</th>
-                              <th className="text-left p-2 font-medium">Player</th>
+                              <th className="text-left p-2 font-medium">Team</th>
                               <th className="text-right p-2 font-medium">Points</th>
                             </tr>
                           </thead>
@@ -2019,19 +2082,7 @@ export default function FantasyLeague() {
                                   )}
                                 </td>
                                 <td className="p-2">
-                                  <div className="flex items-center gap-2">
-                                    {standing.avatar_url ? (
-                                      <Avatar className="h-6 w-6">
-                                        <AvatarImage src={standing.avatar_url} alt={standing.username} />
-                                        <AvatarFallback>{standing.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                      </Avatar>
-                                    ) : (
-                                      <Avatar className="h-6 w-6">
-                                        <AvatarFallback>{standing.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                      </Avatar>
-                                    )}
-                                    {standing.username}
-                                  </div>
+                                  <span>{standing.team_name || ''}</span>
                                 </td>
                                 <td className="p-2 text-right font-medium">{standing.total_points}</td>
                               </tr>
@@ -2202,6 +2253,28 @@ export default function FantasyLeague() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {teamNameRequired && (
+        <Dialog open={true} onOpenChange={() => setTeamNameRequired(false)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Enter Your Team Name</DialogTitle>
+              <DialogDescription>
+                Please enter a team name to participate in the Fantasy League
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Enter your team name"
+              />
+              <Button variant="default" onClick={saveTeamName}>
+                Save Team Name
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </AuthLayout>
   );
 }
