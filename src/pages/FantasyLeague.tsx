@@ -359,7 +359,16 @@ export default function FantasyLeague() {
       console.log("DEBUG - Fetched selections:", selectionsData);
 
       const selections = selectionsData;
-      const hasSubmittedSelections = selections.some(s => s.submitted_at !== null);
+      
+      // Get submitted selections grouped by day
+      const submittedSelectionsByDay = selections.reduce((acc, selection) => {
+        if (selection.submitted_at) {
+          acc[selection.day_id] = true;
+        }
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      console.log("DEBUG - Submitted selections by day:", submittedSelectionsByDay);
 
       // Update chips state based on selections
       const usedChips = new Set(selections.filter(s => s.chip).map(s => s.chip));
@@ -373,7 +382,11 @@ export default function FantasyLeague() {
         const dayRaces = racesData
           .filter(race => race.day_id === day.id)
           .map(race => {
-            const selection = selections.find(s => s.race_id === race.id);
+            // Only apply selections from the same day
+            const selection = selections.find(s => 
+              s.race_id === race.id && 
+              s.day_id === day.id
+            );
             return {
               ...race,
               horses: race.horses || [],
@@ -385,7 +398,7 @@ export default function FantasyLeague() {
         return {
           ...day,
           races: dayRaces,
-          selections_submitted: hasSubmittedSelections,
+          selections_submitted: submittedSelectionsByDay[day.id] || false,
           name: `Day ${day.day_number}` // Add computed name property
         };
       });
@@ -605,7 +618,8 @@ export default function FantasyLeague() {
       setFestivalDays(days => days.map(day => ({
         ...day,
         races: day.races.map(race => 
-          race.id === raceId ? { ...race, selected_horse_id: horseId } : race
+          race.id === raceId 
+            ? { ...race, selected_horse_id: horseId } : race
         )
       })));
 
@@ -617,18 +631,32 @@ export default function FantasyLeague() {
           return;
         }
 
+        // Always use the selected day's ID for day_id
+        const dayId = selectedDay.id;
+        console.log(`DEBUG - Setting selection for race ${raceId} in day ${dayId}`);
+
         // Find existing selection for this race
-        const existingSelection = selections.find(s => s.race_id === raceId);
+        const { data: existingSelections, error } = await supabase
+          .from('fantasy_selections')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('race_id', raceId);
+          
+        if (error) {
+          console.error("Error fetching existing selections:", error);
+          return;
+        }
         
-        if (existingSelection) {
+        if (existingSelections && existingSelections.length > 0) {
           // Update existing selection
-          console.log("Updating existing selection", { id: existingSelection.id, horseId });
+          console.log("Updating existing selection", { id: existingSelections[0].id, horseId });
           const { data, error } = await supabase
             .from('fantasy_selections')
             .update({ 
-              horse_id: horseId 
+              horse_id: horseId,
+              day_id: dayId  // Ensure the day_id is set correctly
             })
-            .eq('id', existingSelection.id)
+            .eq('id', existingSelections[0].id)
             .select();
             
           if (error) {
@@ -645,14 +673,14 @@ export default function FantasyLeague() {
           }
         } else {
           // Create new selection
-          console.log("Creating new selection", { userId, horseId, raceId, dayId: selectedDay.id });
+          console.log("Creating new selection", { userId, horseId, raceId, dayId });
           const { data, error } = await supabase
             .from('fantasy_selections')
             .insert({
               user_id: userId,
               horse_id: horseId,
               race_id: raceId,
-              day_id: selectedDay.id
+              day_id: dayId  // Ensure the day_id is set correctly
             })
             .select();
             
@@ -1001,7 +1029,7 @@ export default function FantasyLeague() {
     if (isChipAlreadyUsed) {
       toast({
         title: "Chip Already Used",
-        description: "You have already used this chip. Each chip can only be used once during the festival.",
+        description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
         variant: "destructive"
       });
       return;
@@ -1117,7 +1145,8 @@ export default function FantasyLeague() {
         const { error } = await supabase
           .from('fantasy_selections')
           .update({ 
-            chip: currentChip
+            chip: currentChip,
+            day_id: selectedDay.id  // Ensure the day_id is set correctly
           })
           .eq('id', existingSelection.id);
 
@@ -1347,8 +1376,7 @@ export default function FantasyLeague() {
         ) : day.races.length > 0 ? (
           <div className="space-y-4">
             {day.races.map((race) => {
-              const selection = festivalDays.find(d => d.id === selectedDay?.id)?.races.find(r => r.id === race.id);
-              const selectedHorse = race.horses.find((h) => h.id === selection?.selected_horse_id);
+              const selectedHorse = race.horses.find((h) => h.id === race.selected_horse_id);
 
               return (
                 <Card 
@@ -1356,10 +1384,10 @@ export default function FantasyLeague() {
                   className={cn(
                     "relative",
                     activeChip && "cursor-pointer hover:bg-accent/80 hover:border-accent-foreground transition-all",
-                    selection?.chip && "border-primary/50"
+                    race.chip && "border-primary/50"
                   )}
                   onClick={() => {
-                    if (activeChip && !selection?.chip) {
+                    if (activeChip && !race.chip) {
                       const defaultHorse = race.horses[0];
                       if (defaultHorse) {
                         handleHorseSelect(race.id, defaultHorse.id);
@@ -1396,17 +1424,17 @@ export default function FantasyLeague() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {selection?.chip && (
+                        {race.chip && (
                           <div className="flex-shrink-0">
-                            {selection.chip === 'superBoost' && <span className="text-sm">🚀</span>}
-                            {selection.chip === 'doubleChance' && <span className="text-sm">🎯</span>}
-                            {selection.chip === 'tripleThreat' && <span className="text-sm">⚖️</span>}
+                            {race.chip === 'superBoost' && <span className="text-sm">🚀</span>}
+                            {race.chip === 'doubleChance' && <span className="text-sm">🎯</span>}
+                            {race.chip === 'tripleThreat' && <span className="text-sm">⚖️</span>}
                           </div>
                         )}
                         <Select
                           value={race.selected_horse_id?.toString() ?? ""}
                           onValueChange={(value) => handleHorseSelect(race.id, value)}
-                          disabled={day.selections_submitted || (activeChip !== null && !selection?.chip) || !isBeforeCutoffTime(day)}
+                          disabled={day.selections_submitted || (activeChip !== null && !race.chip) || !isBeforeCutoffTime(day)}
                         >
                           <SelectTrigger 
                             className={cn(
