@@ -240,24 +240,27 @@ export type Database = {
         Row: {
           id: string
           race_id: string
-          name: string | null
-          fixed_odds: number | null
+          name: string
+          fixed_odds: number
+          result: 'win' | 'place' | 'loss' | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           race_id: string
-          name?: string | null
-          fixed_odds?: number | null
+          name: string
+          fixed_odds: number
+          result?: 'win' | 'place' | 'loss' | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           race_id?: string
-          name?: string | null
-          fixed_odds?: number | null
+          name?: string
+          fixed_odds?: number
+          result?: 'win' | 'place' | 'loss' | null
           created_at?: string
           updated_at?: string
         }
@@ -267,6 +270,38 @@ export type Database = {
             columns: ["race_id"]
             isOneToOne: false
             referencedRelation: "fantasy_races"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      fantasy_league_standings: {
+        Row: {
+          id: string
+          user_id: string
+          total_points: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          total_points: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          total_points?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fantasy_league_standings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]
