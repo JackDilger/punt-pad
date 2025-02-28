@@ -2066,7 +2066,7 @@ export default function FantasyLeague() {
                             <tr className="bg-muted/50 border-b">
                               <th className="text-left p-2 pl-4 font-medium">Rank</th>
                               <th className="text-left p-2 font-medium">Team</th>
-                              <th className="text-left p-2 font-medium">Points</th>
+                              <th className="text-right p-2 pr-4 font-medium">Points</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2086,7 +2086,7 @@ export default function FantasyLeague() {
                                 <td className="p-2">
                                   <span>{standing.team_name || ''}</span>
                                 </td>
-                                <td className="p-2 text-right font-medium">{standing.total_points}</td>
+                                <td className="p-2 pr-4 text-right font-medium">{standing.total_points}</td>
                               </tr>
                             ))}
                           </tbody>
