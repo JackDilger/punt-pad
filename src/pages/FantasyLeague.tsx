@@ -439,7 +439,7 @@ export default function FantasyLeague() {
       toast({
         title: "Error Loading Data",
         description: "There was a problem loading your selections. Please refresh the page.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -541,7 +541,7 @@ export default function FantasyLeague() {
       toast({
         title: "Error",
         description: "Failed to fetch league standings",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoadingStandings(false);
@@ -563,7 +563,7 @@ export default function FantasyLeague() {
       toast({
         title: "Selection Not Allowed",
         description: "The cutoff time for selections has passed.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -576,7 +576,7 @@ export default function FantasyLeague() {
         toast({
           title: "Chip Already Used",
           description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
-          variant: "destructive"
+          variant: "destructive",
         });
         setActiveChip(null); // Reset active chip
         return;
@@ -608,7 +608,7 @@ export default function FantasyLeague() {
         toast({
           title: "Chip Already Used",
           description: "You can only use one chip per day. You have already used a chip for this day's selections.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setActiveChip(null); // Reset active chip
         return;
@@ -738,7 +738,7 @@ export default function FantasyLeague() {
           toast({
             title: "Submission Failed",
             description: "The cutoff time for submissions has passed.",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
         return;
@@ -762,7 +762,7 @@ export default function FantasyLeague() {
         toast({
           title: "No Selections",
           description: "Please make your selections before submitting.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -796,7 +796,7 @@ export default function FantasyLeague() {
       toast({
         title: "Error",
         description: "There was an error submitting your selections. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -981,7 +981,9 @@ export default function FantasyLeague() {
               r.id === raceId 
                 ? {
                     ...updatedRace,
-                    horses: updatedRace.horses || []
+                    horses: updatedRace.horses || [],
+                    selected_horse_id: r.selected_horse_id, // Preserve selection
+                    chip: r.chip // Preserve chip
                   }
                 : r
             )
@@ -989,6 +991,24 @@ export default function FantasyLeague() {
         }
         return day;
       }));
+
+      // Fetch and update selections to ensure UI stays in sync
+      const { data: updatedSelections, error: selectionsError } = await supabase
+        .from('fantasy_selections')
+        .select(`
+          id,
+          user_id,
+          horse_id,
+          race_id,
+          day_id,
+          chip,
+          submitted_at
+        `);
+
+      if (selectionsError) throw selectionsError;
+      if (updatedSelections) {
+        setSelections(updatedSelections);
+      }
 
       setEditingRaceId(null);
       setEditingValues(null);
@@ -1001,7 +1021,7 @@ export default function FantasyLeague() {
       toast({
         title: "Error",
         description: "Failed to update race details. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -1018,7 +1038,7 @@ export default function FantasyLeague() {
       toast({
         title: "Selections Already Submitted",
         description: "You cannot apply chips to selections that have already been submitted.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1029,7 +1049,7 @@ export default function FantasyLeague() {
       toast({
         title: "Chip Already Used",
         description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1062,7 +1082,7 @@ export default function FantasyLeague() {
       toast({
         title: "Chip Already Used",
         description: "You can only use one chip per day. You have already used a chip for this day's selections.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1086,7 +1106,7 @@ export default function FantasyLeague() {
       toast({
         title: "Selections closed",
         description: "The cutoff time for selections has passed.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setChipConfirmationOpen(false);
       setPendingChipRaceId(null);
@@ -1154,7 +1174,7 @@ export default function FantasyLeague() {
           toast({
             title: "Error",
             description: "There was an error saving your selection with chip.",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       } else {
@@ -1174,7 +1194,7 @@ export default function FantasyLeague() {
           toast({
             title: "Error",
             description: "There was an error saving your selection with chip.",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       }
@@ -1189,7 +1209,7 @@ export default function FantasyLeague() {
       toast({
         title: "Error",
         description: "There was an error applying your chip.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setChipConfirmationOpen(false);
@@ -1657,7 +1677,7 @@ export default function FantasyLeague() {
         toast({
           title: "Error",
           description: "There was an error deleting selections.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -1754,7 +1774,7 @@ export default function FantasyLeague() {
         toast({
           title: "Error",
           description: "There was an error clearing chip data.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -1826,7 +1846,7 @@ export default function FantasyLeague() {
         toast({
           title: "Error",
           description: "Day 1 not found in festival days.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -1845,7 +1865,7 @@ export default function FantasyLeague() {
         toast({
           title: "Error",
           description: "There was an error fixing day 1 chip issue.",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }

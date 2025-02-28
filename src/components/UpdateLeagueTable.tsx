@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from './ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from './ui/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
   onUpdate?: () => void;
@@ -27,6 +28,7 @@ interface SelectionWithHorse {
 
 export function UpdateLeagueTable({ onUpdate }: Props) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
 
   const calculatePoints = (result: 'win' | 'place' | 'loss' | null, odds: number, chip: 'superBoost' | 'doubleChance' | 'tripleThreat' | null = null) => {
     console.log('Calculating points for:', { result, odds, chip });
@@ -86,9 +88,14 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
     }
 
     // Apply chip multipliers
-    if (chip === 'superBoost' && isWin) {
-      points *= 10; // 10x points for super boost win
-      console.log('Points after super boost:', points);
+    if (chip === 'superBoost') {
+      if (isWin) {
+        points *= 10; // 10x points for super boost win
+        console.log('Points after super boost win:', points);
+      } else if (isPlace) {
+        points *= 10; // 10x points for super boost place
+        console.log('Points after super boost place:', points);
+      }
     } else if (chip === 'tripleThreat') {
       if (isWin) {
         points *= 3; // Triple points for win
@@ -110,9 +117,24 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
     return points;
   };
 
-  const handleUpdateLeagueTable = async () => {
+  const handleUpdateLeagueTable = useCallback(async () => {
+    // Prevent multiple clicks within 5 seconds
+    if (lastUpdateTime && new Date().getTime() - lastUpdateTime.getTime() < 5000) {
+      toast({
+        title: "Please wait",
+        description: "The table was just updated. Please wait a few seconds before trying again.",
+      });
+      return;
+    }
+
     try {
       setIsUpdating(true);
+      setLastUpdateTime(new Date());
+
+      toast({
+        title: "Updating...",
+        description: "Fetching latest selections and calculating points...",
+      });
 
       // 1. Fetch all user selections with their results
       const { data: selections, error: selectionsError } = await supabase
@@ -254,7 +276,7 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
     } finally {
       setIsUpdating(false);
     }
-  };
+  }, [lastUpdateTime, onUpdate]);
 
   return (
     <Button 
@@ -262,8 +284,16 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
       disabled={isUpdating}
       variant="outline"
       size="sm"
+      className="flex items-center gap-2"
     >
-      {isUpdating ? "Updating..." : "Update League Table"}
+      {isUpdating ? (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Updating...
+        </>
+      ) : (
+        "Update League Table"
+      )}
     </Button>
   );
 }
