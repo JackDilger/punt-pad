@@ -267,7 +267,7 @@ export default function FantasyLeague() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('team_name')
+        .select('id, username, avatar_url, team_name')
         .eq('id', user.id)
         .single();
         
@@ -288,12 +288,31 @@ export default function FantasyLeague() {
     if (!user || !teamName.trim()) return;
     
     try {
+      // Update the team name in profiles
       const { error } = await supabase
         .from('profiles')
         .update({ team_name: teamName.trim() })
         .eq('id', user.id);
         
       if (error) throw error;
+      
+      // Create or update entry in fantasy_league_standings
+      const { error: upsertError } = await supabase
+        .from('fantasy_league_standings')
+        .upsert(
+          { 
+            user_id: user.id,
+            total_points: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { 
+            onConflict: 'user_id',
+            ignoreDuplicates: true 
+          }
+        );
+
+      if (upsertError) throw upsertError;
       
       setTeamNameRequired(false);
       toast({
@@ -1313,7 +1332,7 @@ export default function FantasyLeague() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground">Selection Progress</span>
               <span className="text-sm font-medium">{Math.round(progress)}%</span>
             </div>
