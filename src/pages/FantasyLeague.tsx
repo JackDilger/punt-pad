@@ -406,7 +406,7 @@ export default function FantasyLeague() {
       });
 
       console.log("DEBUG - Processed days:", days);
-      setFestivalDays(days);
+      setFestivalDays(loadUnsubmittedSelectionsFromStorage(days));
       setSelections(selections);
     } catch (error) {
       console.error("Error fetching festival days:", error);
@@ -570,89 +570,37 @@ export default function FantasyLeague() {
         )
       })));
 
-      // Save the selection to the database
-      try {
-        const userId = (await supabase.auth.getUser()).data.user?.id;
-        if (!userId) {
-          console.error("No user ID found");
-          return;
-        }
-
-        // Always use the selected day's ID for day_id
-        const dayId = selectedDay.id;
-        console.log(`DEBUG - Setting selection for race ${raceId} in day ${dayId}`);
-
-        // Find existing selection for this race
-        const { data: existingSelections, error } = await supabase
-          .from('fantasy_selections')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('race_id', raceId);
-          
-        if (error) {
-          console.error("Error fetching existing selections:", error);
-          return;
-        }
-        
-        if (existingSelections && existingSelections.length > 0) {
-          // Update existing selection
-          console.log("Updating existing selection", { id: existingSelections[0].id, horseId });
-          const { data, error } = await supabase
-            .from('fantasy_selections')
-            .update({ 
-              horse_id: horseId,
-              day_id: dayId  // Ensure the day_id is set correctly
-            })
-            .eq('id', existingSelections[0].id)
-            .select();
-            
-          if (error) {
-            console.error("Error updating selection:", error);
-            toast({
-              title: "Error",
-              description: "There was an error saving your selection. Please try again.",
-              variant: "destructive"
-            });
-          } else {
-            console.log("Selection updated successfully", data);
-            // Mark that changes have been saved
-            setHasUnsavedChanges(false);
-          }
-        } else {
-          // Create new selection
-          console.log("Creating new selection", { userId, horseId, raceId, dayId });
-          const { data, error } = await supabase
-            .from('fantasy_selections')
-            .insert({
-              user_id: userId,
-              horse_id: horseId,
-              race_id: raceId,
-              day_id: dayId  // Ensure the day_id is set correctly
-            })
-            .select();
-            
-          if (error) {
-            console.error("Error creating selection:", error);
-            toast({
-              title: "Error",
-              description: "There was an error saving your selection. Please try again.",
-              variant: "destructive"
-            });
-          } else {
-            console.log("Selection created successfully", data);
-            // Mark that changes have been saved
-            setHasUnsavedChanges(false);
-          }
-        }
-      } catch (error) {
-        console.error("Error saving selection:", error);
-        toast({
-          title: "Error",
-          description: "There was an error saving your selection. Please try again.",
-          variant: "destructive"
-        });
+      // Save to localStorage
+      const dayId = selectedDay?.id;
+      if (dayId) {
+        const storageKey = `unsubmitted_selections_${dayId}`;
+        const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        storedSelections[raceId] = horseId;
+        localStorage.setItem(storageKey, JSON.stringify(storedSelections));
       }
+
+      setHasUnsavedChanges(true);
     }
+  };
+
+  const loadUnsubmittedSelectionsFromStorage = (days: FestivalDay[]) => {
+    return days.map(day => {
+      const storageKey = `unsubmitted_selections_${day.id}`;
+      const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      
+      return {
+        ...day,
+        races: day.races.map(race => ({
+          ...race,
+          selected_horse_id: storedSelections[race.id] || race.selected_horse_id
+        }))
+      };
+    });
+  };
+
+  const clearUnsubmittedSelectionsFromStorage = (dayId: string) => {
+    const storageKey = `unsubmitted_selections_${dayId}`;
+    localStorage.removeItem(storageKey);
   };
 
   const getSubmissionStatus = useCallback((day: FestivalDay) => {
@@ -730,14 +678,38 @@ export default function FantasyLeague() {
         return;
       }
 
-      // Update all selections for the day with submitted_at
-      const { error } = await supabase
-        .from("fantasy_selections")
-        .update({ submitted_at: new Date().toISOString() } satisfies Database['public']['Tables']['fantasy_selections']['Update'])
-        .eq("day_id", currentDay.id)
-        .eq("user_id", userId);
+      // Get selections from localStorage
+      const storageKey = `unsubmitted_selections_${currentDay.id}`;
+      const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-      if (error) throw error;
+      // Create selections array from current day's races and stored selections
+      const selectionsToSubmit = currentDay.races.map(race => ({
+        user_id: userId,
+        horse_id: storedSelections[race.id] || race.selected_horse_id,
+        race_id: race.id,
+        day_id: currentDay.id,
+        chip: race.chip,
+        submitted_at: new Date().toISOString()
+      })).filter(selection => selection.horse_id); // Only submit selections that have a horse
+
+      if (selectionsToSubmit.length === 0) {
+        toast({
+          title: "No Selections",
+          description: "Please make your selections before submitting.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Insert all selections at once
+      const { error: insertError } = await supabase
+        .from('fantasy_selections')
+        .insert(selectionsToSubmit);
+
+      if (insertError) throw insertError;
+
+      // Clear localStorage for this day
+      localStorage.removeItem(storageKey);
 
       // Update local state
       setFestivalDays(days => days.map(day => 
@@ -1602,7 +1574,7 @@ export default function FantasyLeague() {
   const deleteAllSelections = async () => {
     try {
       // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
+      const user = (await supabase.auth.getUser()).data.user?.id;
       if (!user) {
         console.error("No user ID found");
         return;
@@ -1612,7 +1584,7 @@ export default function FantasyLeague() {
       const { error } = await supabase
         .from('fantasy_selections')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user);
         
       if (error) {
         console.error("Error deleting selections:", error);
@@ -1628,7 +1600,7 @@ export default function FantasyLeague() {
       const { error: standingsError } = await supabase
         .from('fantasy_league_standings')
         .update({ total_points: 0, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
+        .eq('user_id', user);
         
       if (standingsError) {
         console.error("Error resetting standings:", standingsError);
@@ -1678,7 +1650,7 @@ export default function FantasyLeague() {
       console.log("Clearing chip data for debugging");
       
       // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
+      const user = (await supabase.auth.getUser()).data.user?.id;
       if (!user) {
         console.error("No user ID found");
         return;
@@ -1709,7 +1681,7 @@ export default function FantasyLeague() {
       const { error } = await supabase
         .from('fantasy_selections')
         .update({ chip: null })
-        .eq('user_id', user.id);
+        .eq('user_id', user);
         
       if (error) {
         console.error("Error clearing chip data:", error);
@@ -1775,7 +1747,7 @@ export default function FantasyLeague() {
   const fixDay1ChipIssue = async () => {
     try {
       // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
+      const user = (await supabase.auth.getUser()).data.user?.id;
       if (!user) {
         console.error("No user ID found");
         return;
@@ -1799,7 +1771,7 @@ export default function FantasyLeague() {
       const { error } = await supabase
         .from('fantasy_selections')
         .update({ chip: null })
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         .eq('day_id', day1.id);
         
       if (error) {
