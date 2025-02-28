@@ -454,18 +454,9 @@ export default function FantasyLeague() {
 
       if (placeCountsError) throw placeCountsError;
 
-      // Get chip usage for each user
-      const { data: chipData, error: chipError } = await supabase
-        .from('fantasy_selections')
-        .select('user_id, chip')
-        .not('chip', 'is', null);
-
-      if (chipError) throw chipError;
-
       // Count wins and places per user
       const winCounts = new Map<string, number>();
       const placeCounts = new Map<string, number>();
-      const chipUsage = new Map<string, { superBoost: boolean; doubleChance: boolean; tripleThreat: boolean; }>();
 
       winCountsData?.forEach(selection => {
         const userId = selection.user_id;
@@ -475,21 +466,6 @@ export default function FantasyLeague() {
       placeCountsData?.forEach(selection => {
         const userId = selection.user_id;
         placeCounts.set(userId, (placeCounts.get(userId) || 0) + 1);
-      });
-
-      chipData?.forEach(selection => {
-        const userId = selection.user_id;
-        if (!chipUsage.has(userId)) {
-          chipUsage.set(userId, {
-            superBoost: false,
-            doubleChance: false,
-            tripleThreat: false
-          });
-        }
-        const userChips = chipUsage.get(userId)!;
-        if (selection.chip === 'superBoost') userChips.superBoost = true;
-        if (selection.chip === 'doubleChance') userChips.doubleChance = true;
-        if (selection.chip === 'tripleThreat') userChips.tripleThreat = true;
       });
 
       // Get league standings
@@ -516,6 +492,18 @@ export default function FantasyLeague() {
       // Combine all data
       const standings: LeagueStanding[] = standingsData?.map((standing: any) => {
         const profile = profilesData.find(p => p.id === standing.user_id);
+        const chips = {
+          superBoost: false,
+          doubleChance: false,
+          tripleThreat: false,
+        };
+        // Add chip usage
+        const userSelections = selections.filter(s => s.user_id === standing.user_id);
+        userSelections.forEach(selection => {
+          if (selection.chip) {
+            chips[selection.chip] = true;
+          }
+        });
         return {
           user_id: standing.user_id,
           username: profile?.username || 'Unknown User',
@@ -524,11 +512,7 @@ export default function FantasyLeague() {
           total_points: standing.total_points,
           wins: winCounts.get(standing.user_id) || 0,
           places: placeCounts.get(standing.user_id) || 0,
-          chips: chipUsage.get(standing.user_id) || {
-            superBoost: false,
-            doubleChance: false,
-            tripleThreat: false
-          }
+          chips,
         };
       }) || [];
 
