@@ -95,6 +95,11 @@ interface LeagueStanding {
   team_name: string | null;
   wins: number;
   places: number;
+  chips: {
+    superBoost: boolean;
+    doubleChance: boolean;
+    tripleThreat: boolean;
+  };
 }
 
 interface EditingValues {
@@ -449,9 +454,18 @@ export default function FantasyLeague() {
 
       if (placeCountsError) throw placeCountsError;
 
+      // Get chip usage for each user
+      const { data: chipData, error: chipError } = await supabase
+        .from('fantasy_selections')
+        .select('user_id, chip')
+        .not('chip', 'is', null);
+
+      if (chipError) throw chipError;
+
       // Count wins and places per user
       const winCounts = new Map<string, number>();
       const placeCounts = new Map<string, number>();
+      const chipUsage = new Map<string, { superBoost: boolean; doubleChance: boolean; tripleThreat: boolean; }>();
 
       winCountsData?.forEach(selection => {
         const userId = selection.user_id;
@@ -461,6 +475,21 @@ export default function FantasyLeague() {
       placeCountsData?.forEach(selection => {
         const userId = selection.user_id;
         placeCounts.set(userId, (placeCounts.get(userId) || 0) + 1);
+      });
+
+      chipData?.forEach(selection => {
+        const userId = selection.user_id;
+        if (!chipUsage.has(userId)) {
+          chipUsage.set(userId, {
+            superBoost: false,
+            doubleChance: false,
+            tripleThreat: false
+          });
+        }
+        const userChips = chipUsage.get(userId)!;
+        if (selection.chip === 'superBoost') userChips.superBoost = true;
+        if (selection.chip === 'doubleChance') userChips.doubleChance = true;
+        if (selection.chip === 'tripleThreat') userChips.tripleThreat = true;
       });
 
       // Get league standings
@@ -494,7 +523,12 @@ export default function FantasyLeague() {
           team_name: profile?.team_name || 'Unnamed Team',
           total_points: standing.total_points,
           wins: winCounts.get(standing.user_id) || 0,
-          places: placeCounts.get(standing.user_id) || 0
+          places: placeCounts.get(standing.user_id) || 0,
+          chips: chipUsage.get(standing.user_id) || {
+            superBoost: false,
+            doubleChance: false,
+            tripleThreat: false
+          }
         };
       }) || [];
 
@@ -2098,6 +2132,7 @@ export default function FantasyLeague() {
                               <th className="text-right p-2 font-medium">Wins</th>
                               <th className="text-right p-2 font-medium">Places</th>
                               <th className="text-right p-2 pr-4 font-medium">Points</th>
+                              <th className="text-right p-2 pr-4 font-medium">Chips</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2124,6 +2159,20 @@ export default function FantasyLeague() {
                                   <span>{standing.places}</span>
                                 </td>
                                 <td className="p-2 pr-4 text-right font-medium">{standing.total_points}</td>
+                                <td className="p-2 pr-4 flex justify-end gap-1.5">
+                                  {standing.chips.superBoost && (
+                                    <span className="cursor-help" title="Super Boost Used">🚀</span>
+                                  )}
+                                  {standing.chips.doubleChance && (
+                                    <span className="cursor-help" title="Double Chance Used">🎯</span>
+                                  )}
+                                  {standing.chips.tripleThreat && (
+                                    <span className="cursor-help" title="Triple Threat Used">⚖️</span>
+                                  )}
+                                  {!standing.chips.superBoost && !standing.chips.doubleChance && !standing.chips.tripleThreat && (
+                                    <span className="text-muted-foreground text-sm">None</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
