@@ -93,6 +93,7 @@ interface LeagueStanding {
   avatar_url: string | null;
   total_points: number;
   team_name: string | null;
+  wins: number;
 }
 
 interface EditingValues {
@@ -423,7 +424,26 @@ export default function FantasyLeague() {
   const fetchLeagueStandings = async () => {
     setLoadingStandings(true);
     try {
-      // 1. Fetch league standings from the database
+      // First get the win counts for each user
+      const { data: winCountsData, error: winCountsError } = await supabase
+        .from('fantasy_selections')
+        .select(`
+          user_id,
+          horse_id,
+          fantasy_horses!inner(result)
+        `)
+        .eq('fantasy_horses.result', 'win');
+
+      if (winCountsError) throw winCountsError;
+
+      // Count wins per user (only actual wins)
+      const winCounts = new Map<string, number>();
+      winCountsData?.forEach(selection => {
+        const userId = selection.user_id;
+        winCounts.set(userId, (winCounts.get(userId) || 0) + 1);
+      });
+
+      // Get league standings
       const { data: standingsData, error: standingsError } = await supabase
         .from('fantasy_league_standings')
         .select(`
@@ -435,7 +455,7 @@ export default function FantasyLeague() {
       
       if (standingsError) throw standingsError;
       
-      // 2. Fetch profiles to get usernames and team names
+      // Get user profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, username, avatar_url, team_name')
@@ -444,38 +464,26 @@ export default function FantasyLeague() {
       if (profilesError) throw profilesError;
       if (!profilesData) return;
       
-      console.log("Fetched league standings:", standingsData);
-
-      // Combine data to build standings with user information
-      const standings: LeagueStanding[] = [];
-      
-      // Only include profiles with team names
-      const profilesWithTeams = profilesData.filter(profile => profile.team_name !== null);
-      
-      for (const profile of profilesWithTeams) {
-        // Find this user's standing
-        const userStanding = standingsData?.find(s => s.user_id === profile.id);
-        
-        standings.push({
-          user_id: profile.id,
-          username: profile.username,
-          avatar_url: profile.avatar_url,
-          team_name: profile.team_name,
-          total_points: userStanding?.total_points || 0,
-        });
-      }
-
-      // Sort by points (highest first)
-      standings.sort((a, b) => b.total_points - a.total_points);
-      console.log("Final standings:", standings);
+      // Combine all data
+      const standings: LeagueStanding[] = standingsData?.map((standing: any) => {
+        const profile = profilesData.find(p => p.id === standing.user_id);
+        return {
+          user_id: standing.user_id,
+          username: profile?.username || 'Unknown User',
+          avatar_url: profile?.avatar_url,
+          team_name: profile?.team_name || 'Unnamed Team',
+          total_points: standing.total_points,
+          wins: winCounts.get(standing.user_id) || 0
+        };
+      }) || [];
 
       setLeagueStandings(standings);
     } catch (error) {
       console.error('Error fetching league standings:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load league standings. Please try again.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to fetch league standings",
+        variant: "destructive"
       });
     } finally {
       setLoadingStandings(false);
@@ -2066,6 +2074,7 @@ export default function FantasyLeague() {
                             <tr className="bg-muted/50 border-b">
                               <th className="text-left p-2 pl-4 font-medium">Rank</th>
                               <th className="text-left p-2 font-medium">Team</th>
+                              <th className="text-right p-2 font-medium">Wins</th>
                               <th className="text-right p-2 pr-4 font-medium">Points</th>
                             </tr>
                           </thead>
@@ -2084,7 +2093,10 @@ export default function FantasyLeague() {
                                   )}
                                 </td>
                                 <td className="p-2">
-                                  <span>{standing.team_name || ''}</span>
+                                  <span>{standing.team_name || 'Unnamed Team'}</span>
+                                </td>
+                                <td className="p-2 text-right">
+                                  <span>{standing.wins}</span>
                                 </td>
                                 <td className="p-2 pr-4 text-right font-medium">{standing.total_points}</td>
                               </tr>
