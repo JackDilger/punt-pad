@@ -1,0 +1,168 @@
+{
+  "days": {
+    "day1": {
+      "id": "45889e8c-885c-4801-a2d0-81334903139f",
+      "name": "Champions Day",
+      "races": {
+        "1": {
+          "id": "01e8249e-b32b-4b98-9457-30b0f1faf8c7",
+          "name": "Sky Bet Supreme Novices' Hurdle Race (Grade 1)",
+          "time": "13:30"
+        },
+        "2": {
+          "id": "10bff641-03be-4149-9bf6-292dd7275bc2",
+          "name": "My Pension Expert Arkle Novices' Chase (Grade 1)",
+          "time": "14:10"
+        },
+        "3": {
+          "id": "d191dd8b-8da7-400f-8859-5ab4d4475935",
+          "name": "Ultima Handicap Chase (Premier Handicap)",
+          "time": "14:50"
+        },
+        "4": {
+          "id": "6df86e0c-08dc-44a1-8cce-ca0a3df380f5",
+          "name": "Close Brothers Mares' Hurdle Race (Grade 1)",
+          "time": "15:30"
+        },
+        "5": {
+          "id": "46392f05-866d-443a-acc6-b0553eca2ba0",
+          "name": "Unibet Champion Hurdle (Grade 1)",
+          "time": "16:10"
+        },
+        "6": {
+          "id": "c75486d4-e0ad-4887-bf68-853cb3bfbb38",
+          "name": "Boodles Juvenile Handicap Hurdle (Premier Handicap)",
+          "time": "16:50"
+        },
+        "7": {
+          "id": "74d640c8-d076-43c1-bec9-4ac639c33d44",
+          "name": "National Hunt Novices' Chase",
+          "time": "17:30"
+        }
+      }
+    },
+    "day2": {
+      "id": "e0981b39-81f8-4298-a757-17c446656f09",
+      "name": "Ladies Day",
+      "races": {
+        "1": {
+          "id": "7441333b-0a3b-4f64-b19a-af236750c9a6",
+          "name": "Turners Novices' Hurdle Race (Grade 1)",
+          "time": "13:20"
+        },
+        "2": {
+          "id": "e81cbe38-eca9-4f55-83c4-8de741770037",
+          "name": "Brown Advisory Novices' Steeple Chase",
+          "time": "14:00"
+        },
+        "3": {
+          "id": "25000899-dbad-4d58-b3c5-2bd62bf1e21e",
+          "name": "Coral Cup Handicap Hurdle",
+          "time": "14:40"
+        },
+        "4": {
+          "id": "49eb1707-d550-4ac7-9c9c-359d926eee22",
+          "name": "Glenfarclas Cross Country Handicap Chase",
+          "time": "15:20"
+        },
+        "5": {
+          "id": "1fd703f4-47a1-454c-8ae9-c29e09494089",
+          "name": "BetMGM Queen Mother Champion Steeple Chase (Grade 1)",
+          "time": "16:00"
+        },
+        "6": {
+          "id": "020336a8-0373-42e8-8571-4b1f52ca70a5",
+          "name": "Grand Annual Handicap Chase",
+          "time": "16:40"
+        },
+        "7": {
+          "id": "93dc1c09-360f-480f-92d1-d192ab6b3d55",
+          "name": "Weatherbys Champion Bumper (Open NH Flat Race)",
+          "time": "17:20"
+        }
+      }
+    },
+    "day3": {
+      "id": "fb02f287-8ab5-4f9b-a7a0-3cdd279f5994",
+      "name": "St Patricks Thursday",
+      "races": {
+        "1": {
+          "id": "54618825-2212-4468-9ee5-32557da30a3b",
+          "name": "Ryanair Mares' Novices' Hurdle (Grade 2)",
+          "time": "13:20"
+        },
+        "2": {
+          "id": "45ed87fb-7e36-43b0-9bf5-67a0f50d7f99",
+          "name": "Jack Richards Novices' Limited Handicap Chase",
+          "time": "14:00"
+        },
+        "3": {
+          "id": "dbd2f211-a4bb-49b6-ae36-efd92feb9f95",
+          "name": "Pertemps Final Handicap Hurdle",
+          "time": "14:40"
+        },
+        "4": {
+          "id": "17cf3cd8-6f30-4e41-8482-d2c7b935b18b",
+          "name": "Ryanair Chase (Grade 1)",
+          "time": "15:20"
+        },
+        "5": {
+          "id": "91dce43d-2598-4cf8-b699-12f59af19dca",
+          "name": "Paddy Power Stayers' Hurdle (Grade 1)",
+          "time": "16:00"
+        },
+        "6": {
+          "id": "616dae6e-ca7f-4461-baf4-cefe37922bd1",
+          "name": "TrustATrader Plate Handicap Chase",
+          "time": "16:40"
+        },
+        "7": {
+          "id": "e5bcf5e2-1a01-43bd-8f68-4f7c767c8f96",
+          "name": "Fulke Walwyn Kim Muir Challenge Cup",
+          "time": "17:20"
+        }
+      }
+    },
+    "day4": {
+      "id": "7fe21f80-d7c2-4b07-861b-61df42a32adf",
+      "name": "Gold Cup Day",
+      "races": {
+        "1": {
+          "id": "76923595-74e6-479a-bced-e5f6d6ff5c66",
+          "name": "JCB Triumph Hurdle (Grade 1)",
+          "time": "13:20"
+        },
+        "2": {
+          "id": "28779f26-5059-44da-a73b-5871744e06c4",
+          "name": "William Hill County Handicap Hurdle",
+          "time": "14:00"
+        },
+        "3": {
+          "id": "60734330-0a96-4a07-9116-5601d5138d1c",
+          "name": "Mrs Paddy Power Mares' Chase (Grade 2)",
+          "time": "14:40"
+        },
+        "4": {
+          "id": "c7cc07e1-dbd6-4f20-93ea-603cfec161ed",
+          "name": "Albert Bartlett Novices' Hurdle (Grade 1)",
+          "time": "15:20"
+        },
+        "5": {
+          "id": "c653d91b-1266-4aa2-8012-aaa681832107",
+          "name": "Boodles Cheltenham Gold Cup Chase (Grade 1)",
+          "time": "16:00"
+        },
+        "6": {
+          "id": "81bc6c31-c6d4-4d85-b7df-079aea38e740",
+          "name": "St. James's Place Festival Challenge Cup Open Hunters' Chase",
+          "time": "16:40"
+        },
+        "7": {
+          "id": "40337958-9697-4bf9-94ae-c27ca5c881d0",
+          "name": "Martin Pipe Conditional Jockeys' Handicap Hurdle",
+          "time": "17:20"
+        }
+      }
+    }
+  }
+}
