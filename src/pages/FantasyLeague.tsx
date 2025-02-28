@@ -94,6 +94,7 @@ interface LeagueStanding {
   total_points: number;
   team_name: string | null;
   wins: number;
+  places: number;
 }
 
 interface EditingValues {
@@ -436,11 +437,30 @@ export default function FantasyLeague() {
 
       if (winCountsError) throw winCountsError;
 
-      // Count wins per user (only actual wins)
+      // Get place counts for each user
+      const { data: placeCountsData, error: placeCountsError } = await supabase
+        .from('fantasy_selections')
+        .select(`
+          user_id,
+          horse_id,
+          fantasy_horses!inner(result)
+        `)
+        .eq('fantasy_horses.result', 'place');
+
+      if (placeCountsError) throw placeCountsError;
+
+      // Count wins and places per user
       const winCounts = new Map<string, number>();
+      const placeCounts = new Map<string, number>();
+
       winCountsData?.forEach(selection => {
         const userId = selection.user_id;
         winCounts.set(userId, (winCounts.get(userId) || 0) + 1);
+      });
+
+      placeCountsData?.forEach(selection => {
+        const userId = selection.user_id;
+        placeCounts.set(userId, (placeCounts.get(userId) || 0) + 1);
       });
 
       // Get league standings
@@ -473,7 +493,8 @@ export default function FantasyLeague() {
           avatar_url: profile?.avatar_url,
           team_name: profile?.team_name || 'Unnamed Team',
           total_points: standing.total_points,
-          wins: winCounts.get(standing.user_id) || 0
+          wins: winCounts.get(standing.user_id) || 0,
+          places: placeCounts.get(standing.user_id) || 0
         };
       }) || [];
 
@@ -2075,6 +2096,7 @@ export default function FantasyLeague() {
                               <th className="text-left p-2 pl-4 font-medium">Rank</th>
                               <th className="text-left p-2 font-medium">Team</th>
                               <th className="text-right p-2 font-medium">Wins</th>
+                              <th className="text-right p-2 font-medium">Places</th>
                               <th className="text-right p-2 pr-4 font-medium">Points</th>
                             </tr>
                           </thead>
@@ -2097,6 +2119,9 @@ export default function FantasyLeague() {
                                 </td>
                                 <td className="p-2 text-right">
                                   <span>{standing.wins}</span>
+                                </td>
+                                <td className="p-2 text-right">
+                                  <span>{standing.places}</span>
                                 </td>
                                 <td className="p-2 pr-4 text-right font-medium">{standing.total_points}</td>
                               </tr>
