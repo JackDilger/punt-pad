@@ -789,12 +789,8 @@ export default function FantasyLeague() {
       // Clear localStorage for this day
       localStorage.removeItem(storageKey);
 
-      // Update local state
-      setFestivalDays(days => days.map(day => 
-        day.id === currentDay.id 
-          ? { ...day, selections_submitted: true }
-          : day
-      ));
+      // Fetch fresh data to ensure everything is in sync
+      await fetchFestivalDays();
 
       setHasUnsavedChanges(false);
       setSubmissionDialogOpen(false);
