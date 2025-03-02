@@ -375,14 +375,20 @@ export default function FantasyLeague() {
 
       const { data: selectionsData, error: selectionsError } = await supabase
         .from('fantasy_selections')
-        .select('*')
+        .select(`
+          id,
+          user_id,
+          horse_id,
+          race_id,
+          day_id,
+          chip,
+          submitted_at,
+          created_at
+        `)
         .eq('user_id', userId)
         .returns<Selection[]>();
 
-      if (selectionsError) {
-        console.error("Error fetching selections:", selectionsError);
-        throw selectionsError;
-      }
+      if (selectionsError) throw selectionsError;
 
       console.log("DEBUG - Fetched selections:", selectionsData);
 
@@ -433,7 +439,13 @@ export default function FantasyLeague() {
 
       console.log("DEBUG - Processed days:", days);
       setFestivalDays(loadUnsubmittedSelectionsFromStorage(days));
-      setSelections(selections);
+      if (selectionsData) {
+        const typedSelections = selectionsData.map(s => ({
+          ...s,
+          chip: (s.chip as 'superBoost' | 'doubleChance' | 'tripleThreat' | undefined)
+        }));
+        setSelections(typedSelections);
+      }
     } catch (error) {
       console.error("Error fetching festival days:", error);
       toast({
@@ -1002,12 +1014,17 @@ export default function FantasyLeague() {
           race_id,
           day_id,
           chip,
-          submitted_at
+          submitted_at,
+          created_at
         `);
 
       if (selectionsError) throw selectionsError;
       if (updatedSelections) {
-        setSelections(updatedSelections);
+        const typedSelections = updatedSelections.map(s => ({
+          ...s,
+          chip: (s.chip as 'superBoost' | 'doubleChance' | 'tripleThreat' | undefined)
+        }));
+        setSelections(typedSelections);
       }
 
       setEditingRaceId(null);
@@ -2008,16 +2025,16 @@ export default function FantasyLeague() {
                   Force Check Chip Data
                 </Button>
                 <UpdateLeagueTable onUpdate={fetchLeagueStandings} />
+                <Button
+                  variant="outline"
+                  onClick={() => fetchFestivalDays()}
+                  size="sm"
+                  className="text-xs"
+                >
+                  Refresh Data
+                </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              onClick={() => fetchFestivalDays()}
-              size="sm"
-              className="text-xs"
-            >
-              Refresh Data
-            </Button>
           </div>
         </div>
 
