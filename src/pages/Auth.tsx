@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,9 +14,11 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const { toast } = useToast();
   const { session } = useAuth();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/dashboard";
 
   if (session) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const handleGoogleLogin = async () => {
