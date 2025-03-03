@@ -201,7 +201,6 @@ export default function FantasyLeague() {
   ]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
   const [loadingStandings, setLoadingStandings] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("selections");
@@ -234,18 +233,6 @@ export default function FantasyLeague() {
       }
     }
   }, [festivalDays]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (activeTab === "league-table") {
@@ -580,84 +567,26 @@ export default function FantasyLeague() {
       return;
     }
 
-    setHasUnsavedChanges(true);
-    if (activeChip) {
-      // Check if this specific chip has been used
-      const isChipAlreadyUsed = chips.find(c => c.id === activeChip)?.used;
-      if (isChipAlreadyUsed) {
-        toast({
-          title: "Chip Already Used",
-          description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
-          variant: "destructive",
-        });
-        setActiveChip(null); // Reset active chip
-        return;
-      }
+    const updatedSelections = selections.map(s => 
+      s.race_id === raceId ? { ...s, horse_id: horseId } : s
+    );
+    setSelections(updatedSelections);
 
-      // Check if any race on the current day already has a chip
-      const hasChipForCurrentDay = selectedDay.races.some(race => {
-        const hasChip = race.chip !== undefined;
-        if (hasChip) {
-          console.log("DEBUG - Found race with chip:", race);
-        }
-        return hasChip;
-      });
+    setFestivalDays(days => days.map(day => ({
+      ...day,
+      races: day.races.map(race => 
+        race.id === raceId 
+          ? { ...race, selected_horse_id: horseId } : race
+      )
+    })));
 
-      // Also check selections for this day that might not be reflected in the UI yet
-      const selectionsWithChips = selections.filter(s => 
-        // Only check selections for the current day
-        s.day_id === selectedDay.id && 
-        // And that have a chip
-        s.chip !== undefined
-      );
-      
-      const hasChipInSelections = selectionsWithChips.length > 0;
-      
-      console.log("DEBUG - selections for current day with chips:", selectionsWithChips);
-      console.log("DEBUG - hasChipInSelections:", hasChipInSelections);
-
-      if (hasChipForCurrentDay || hasChipInSelections) {
-        toast({
-          title: "Chip Already Used",
-          description: "You can only use one chip per day. You have already used a chip for this day's selections.",
-          variant: "destructive",
-        });
-        setActiveChip(null); // Reset active chip
-        return;
-      }
-
-      // Find the chip details for the confirmation dialog
-      const chipDetails = chips.find(c => c.id === activeChip);
-      setSelectedChip(chipDetails || null);
-      
-      // Show confirmation dialog before applying chip
-      setPendingChipRaceId(raceId);
-      setChipConfirmationOpen(true);
-    } else {
-      // Regular selection without chip
-      const updatedSelections = selections.map(s => 
-        s.race_id === raceId ? { ...s, horse_id: horseId } : s
-      );
-      setSelections(updatedSelections);
-
-      setFestivalDays(days => days.map(day => ({
-        ...day,
-        races: day.races.map(race => 
-          race.id === raceId 
-            ? { ...race, selected_horse_id: horseId } : race
-        )
-      })));
-
-      // Save to localStorage
-      const dayId = selectedDay?.id;
-      if (dayId) {
-        const storageKey = `unsubmitted_selections_${dayId}`;
-        const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        storedSelections[raceId] = horseId;
-        localStorage.setItem(storageKey, JSON.stringify(storedSelections));
-      }
-
-      setHasUnsavedChanges(true);
+    // Save to localStorage
+    const dayId = selectedDay?.id;
+    if (dayId) {
+      const storageKey = `unsubmitted_selections_${dayId}`;
+      const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      storedSelections[raceId] = horseId;
+      localStorage.setItem(storageKey, JSON.stringify(storedSelections));
     }
   };
 
@@ -706,33 +635,6 @@ export default function FantasyLeague() {
     const selectedRaces = day.races.filter(race => race.selected_horse_id).length;
     return (selectedRaces / totalRaces) * 100;
   }, []);
-
-  useEffect(() => {
-    fetchFestivalDays();
-  }, []);
-
-  useEffect(() => {
-    if (festivalDays.length > 0) {
-      if (!selectedDay) {
-        setSelectedDay(festivalDays[0]);
-      }
-      if (!selectedDayTab) {
-        setSelectedDayTab(festivalDays[0].id);
-      }
-    }
-  }, [festivalDays]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
 
   const handleSubmitSelections = async () => {
     try {
@@ -792,7 +694,6 @@ export default function FantasyLeague() {
       // Fetch fresh data to ensure everything is in sync
       await fetchFestivalDays();
 
-      setHasUnsavedChanges(false);
       setSubmissionDialogOpen(false);
       
       toast({
@@ -1212,7 +1113,6 @@ export default function FantasyLeague() {
         }
       }
 
-      setHasUnsavedChanges(false);
       toast({
         title: `${selectedChip.name} Applied`,
         description: `Your ${selectedChip.name} has been applied to this race.`,
