@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, X, Loader2, Star } from "lucide-react";
+import { Trophy, Medal, Award, X, Loader2, Star, Target, Zap, Rocket } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HorseIcon from "./HorseIcon";
 import {
@@ -23,7 +23,8 @@ interface Horse {
   result?: 'win' | 'place' | 'loss';
   points: number;
   achievement?: 'best_performer' | 'consistent' | 'underdog';
-  odds: number | null;
+  odds?: number;
+  chip?: 'superBoost' | 'doubleChance' | 'tripleThreat';
 }
 
 interface StableData {
@@ -69,14 +70,16 @@ export default function MyStable() {
           
         if (profileError) throw profileError;
         
-        // Fetch user selections with horse and race data
+        // Fetch user's selections with race information
         const { data: selectionsData, error: selectionsError } = await supabase
           .from('fantasy_selections')
           .select(`
             id,
+            user_id,
             horse_id,
             race_id,
             day_id,
+            chip,
             horses:horse_id (
               id,
               name,
@@ -84,7 +87,8 @@ export default function MyStable() {
             ),
             races:race_id (
               id,
-              name
+              name,
+              day_id
             )
           `)
           .eq('user_id', session.data.session?.user.id);
@@ -118,13 +122,15 @@ export default function MyStable() {
         
         // Transform the data
         const horses: Horse[] = selectionsData.map((selection: any) => {
-          // Calculate points based on result
-          let points = 0;
-          if (selection.horses.result === 'win') {
-            points = 10;
-          } else if (selection.horses.result === 'place') {
-            points = 5;
-          }
+          // Get the odds for calculation
+          const odds = oddsMap.get(selection.horses.id) || 2.0; // Default to 2.0 (evens) if not found
+          
+          // Calculate points based on result and chip
+          let points = calculatePoints(
+            selection.horses.result,
+            odds,
+            selection.chip
+          );
           
           return {
             id: selection.horses.id,
@@ -132,7 +138,8 @@ export default function MyStable() {
             points: points,
             result: selection.horses.result,
             race_name: selection.races.name,
-            odds: oddsMap.get(selection.horses.id) || null,
+            odds: odds,
+            chip: selection.chip,
           };
         });
         
@@ -261,6 +268,113 @@ export default function MyStable() {
       } catch (error) {
         console.error("Failed to load confetti:", error);
       }
+    }
+  };
+
+  // Function to calculate points based on result, odds, and chip
+  const calculatePoints = (result: 'win' | 'place' | 'loss' | null, odds: number, chip: 'superBoost' | 'doubleChance' | 'tripleThreat' | null = null) => {
+    if (!result) return 0;
+    
+    let points = 0;
+    let isWin = result === 'win';
+    let isPlace = result === 'place';
+    let isLoss = result === 'loss';
+
+    // Handle Double Chance chip - converts place to win
+    if (chip === 'doubleChance' && isPlace) {
+      isWin = true;
+      isPlace = false;
+    }
+
+    // Calculate points based on the odds ranges
+    if (isWin) {
+      // Win points based on odds ranges
+      if (odds <= 3) { // Up to 2/1 (decimal 3.0)
+        points = 15;
+      } else if (odds <= 5) { // Up to 4/1 (decimal 5.0)
+        points = 20;
+      } else if (odds <= 9) { // Up to 8/1 (decimal 9.0)
+        points = 25;
+      } else { // Over 8/1 (decimal > 9.0)
+        points = 30;
+      }
+    } else if (isPlace) {
+      // Place points based on odds ranges
+      if (odds <= 3) { // Up to 2/1
+        points = 5;
+      } else if (odds <= 5) { // Up to 4/1
+        points = 7;
+      } else if (odds <= 9) { // Up to 8/1
+        points = 10;
+      } else { // Over 8/1
+        points = 12;
+      }
+    }
+
+    // Apply chip multipliers
+    if (chip === 'superBoost') {
+      if (isWin || isPlace) {
+        points *= 10; // 10x points for super boost win or place
+      }
+    } else if (chip === 'tripleThreat') {
+      if (isWin) {
+        points *= 3; // Triple points for win
+      } else if (isLoss) {
+        // For loss, use the win points but make them negative and triple them
+        let lossPoints = 0;
+        if (odds <= 3) lossPoints = 15;
+        else if (odds <= 5) lossPoints = 20;
+        else if (odds <= 9) lossPoints = 25;
+        else lossPoints = 30;
+        
+        points = lossPoints * -3;
+      }
+    }
+
+    return points;
+  };
+
+  // Function to format odds in fractional format
+  const formatOdds = (odds: number): string => {
+    // Convert decimal odds to fractional format
+    if (odds === 2.0) return "Evens"; // Special case for evens
+    
+    if (odds < 2.0) {
+      // For odds less than 2.0 (e.g., 1.5 which is 1/2)
+      const denominator = Math.round(1 / (odds - 1));
+      return `1/${denominator}`;
+    } else {
+      // For odds greater than 2.0 (e.g., 3.0 which is 2/1)
+      const numerator = Math.round(odds - 1);
+      return `${numerator}/1`;
+    }
+  };
+
+  // Function to get chip icon
+  const getChipIcon = (chip?: 'superBoost' | 'doubleChance' | 'tripleThreat') => {
+    switch (chip) {
+      case 'superBoost':
+        return <span className="text-sm">🚀</span>;
+      case 'doubleChance':
+        return <span className="text-sm">🎯</span>;
+      case 'tripleThreat':
+        return <span className="text-sm">🏆</span>;
+      default:
+        return null;
+    }
+  };
+
+  // Function to get chip name
+  const getChipName = (chip?: 'superBoost' | 'doubleChance' | 'tripleThreat') => {
+    switch (chip) {
+      case 'superBoost':
+        return "Super Boost";
+      case 'doubleChance':
+        return "Double Chance";
+      case 'tripleThreat':
+        return "Triple Threat";
+      default:
+        return null;
     }
   };
 
@@ -396,7 +510,9 @@ export default function MyStable() {
                         <div className={`absolute -top-2 -right-2 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                           horse.points > 0 
                             ? 'bg-green-600' 
-                            : 'bg-gray-500'
+                            : horse.points < 0
+                              ? 'bg-red-600'
+                              : 'bg-gray-500'
                         } ${horse.points > 0 ? 'animate-bounce-subtle' : ''}`}>
                           {horse.points}
                         </div>
@@ -432,54 +548,53 @@ export default function MyStable() {
                       </div>
                       <div className="mt-3 text-center">
                         <h3 className="font-semibold text-sm truncate max-w-[120px]">{horse.name}</h3>
-                        <p className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]">{horse.race_name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Odds: {horse.odds ? `${horse.odds}/1` : 'N/A'}</p>
+                        <div className="flex items-center justify-center gap-1 mt-1">
+                          {getResultIcon(horse.result)}
+                          <span className={`font-medium ${
+                            horse.result === 'win' ? 'text-yellow-500' : 
+                            horse.result === 'place' ? 'text-gray-400' : 
+                            horse.result === 'loss' ? 'text-red-500' : ''
+                          }`}>
+                            {horse.result === 'win' ? 'Win' : horse.result === 'place' ? 'Place' : horse.result === 'loss' ? 'Loss' : 'TBD'}
+                          </span>
+                          {horse.chip && (
+                            <div className="ml-1 flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
+                              {getChipIcon(horse.chip)}
+                              <span className="text-xs">{getChipName(horse.chip)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-72 p-0">
+                  <HoverCardContent className="w-64 p-0">
                     <div className="p-4 space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-6 h-6 rounded-full ${getResultColor(horse.result)}`}></div>
+                      <div className="flex justify-between items-center">
                         <h4 className="font-bold">{horse.name}</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{horse.race_name}</p>
-                      
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Result</p>
-                          <p className={`font-medium truncate ${
-                            horse.result === 'win' 
-                              ? 'text-yellow-600' 
-                              : horse.result === 'place'
-                              ? 'text-gray-600'
-                              : horse.result === 'loss'
-                              ? 'text-red-600'
-                              : ''
-                          }`}>
-                            {horse.result ? formatResult(horse.result) : 'Unknown'}
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-xs text-muted-foreground">Points</p>
-                          <p className="font-medium truncate">{horse.points}</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-xs text-muted-foreground">Odds</p>
-                          <p className="font-medium truncate">{horse.odds ? `${horse.odds}/1` : 'N/A'}</p>
-                        </div>
-                        
-                        {horse.achievement && (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Achievement</p>
-                            <p className="font-medium truncate">
-                              {formatAchievement(horse.achievement)}
-                            </p>
+                        {horse.chip && (
+                          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
+                            {getChipIcon(horse.chip)}
+                            <span className="text-xs">{getChipName(horse.chip)}</span>
                           </div>
                         )}
                       </div>
+                      <p className="text-sm text-gray-500">{horse.race_name}</p>
+                      <div className="flex justify-between">
+                        <p className="font-medium">Odds: {horse.odds ? formatOdds(horse.odds) : 'N/A'}</p>
+                        <p className="font-bold">{horse.points} pts</p>
+                      </div>
+                      {horse.achievement && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <Trophy className="h-4 w-4 text-yellow-500" />
+                            <span className="text-sm font-medium">
+                              {horse.achievement === 'best_performer' ? 'Best Performer' :
+                               horse.achievement === 'consistent' ? 'Consistent Performer' :
+                               'Underdog'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </HoverCardContent>
                 </HoverCard>
