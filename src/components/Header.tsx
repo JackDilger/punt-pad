@@ -58,16 +58,16 @@ export const Header = () => {
               </>
             ) : (
               <>
-                <Link to="/pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                   Pricing
                 </Link>
-                <Link to="/features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                   Features
                 </Link>
-                <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                   About
                 </Link>
-                <Link to="/blog" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                   Blog
                 </Link>
                 <Link to="/auth">
