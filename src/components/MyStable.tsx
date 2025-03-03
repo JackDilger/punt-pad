@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, X, Loader2, Star } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import HorseIcon from "./HorseIcon";
 import {
   HoverCard,
   HoverCardContent,
@@ -181,29 +182,16 @@ export default function MyStable() {
     }
   };
 
-  const handleHorseClick = (horse: Horse) => {
-    // Show a small confetti burst when clicking on a winning horse
+  const handleHorseClick = async (horse: any) => {
     if (horse.result === 'win') {
-      // Only run in browser environment
-      if (typeof window !== 'undefined') {
-        // Dynamically import confetti
-        import('canvas-confetti').then((confettiModule) => {
-          const confetti = confettiModule.default;
-          confetti({
-            particleCount: 30,
-            spread: 50,
-            origin: { y: 0.7 }
-          });
-        }).catch(err => {
-          console.error("Failed to load confetti:", err);
-        });
-      }
+      // Dynamically import confetti only when needed
+      const confetti = (await import('canvas-confetti')).default;
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
-    
-    toast({
-      title: `${horse.name}`,
-      description: `Race: ${horse.race_name}, Result: ${horse.result || 'Unknown'}, Points: ${horse.points}`,
-    });
   };
 
   const filteredHorses = stableData?.horses.filter(horse => {
@@ -273,13 +261,13 @@ export default function MyStable() {
                   <HoverCardTrigger asChild>
                     <div className="flex flex-col items-center">
                       <div 
-                        className={`relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md border-2 cursor-pointer ${
-                          horse.result === 'win' 
-                            ? 'bg-gradient-to-br from-yellow-100 to-yellow-50 border-yellow-300' 
-                            : horse.result === 'place'
-                            ? 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300'
-                            : 'bg-white border-gray-200'
-                        }`}
+                        className={`relative flex items-center justify-center w-24 h-24 mx-auto rounded-full bg-white shadow-md
+                          hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer
+                          ${horse.result === 'win' ? 'border-4 border-yellow-500' : ''}
+                          ${horse.result === 'loss' ? 'border-4 border-red-500' : ''}
+                          ${horse.result === 'place' ? 'border-4 border-gray-400' : ''}
+                          ${!horse.result ? 'border-4 border-transparent' : ''}
+                        `}
                         onClick={() => handleHorseClick(horse)}
                       >
                         {/* Points circle */}
@@ -317,10 +305,8 @@ export default function MyStable() {
                           </div>
                         )}
                         
-                        {/* Horse initials */}
-                        <span className="text-2xl font-bold text-gray-700">
-                          {horse.name.split(' ').map(word => word[0]).join('')}
-                        </span>
+                        {/* Horse icon */}
+                        <HorseIcon className="text-3xl text-gray-800" />
                       </div>
                       <div className="mt-3 text-center">
                         <h3 className="font-semibold text-sm truncate max-w-[120px]">{horse.name}</h3>
