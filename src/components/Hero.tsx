@@ -65,9 +65,9 @@ export const Hero = () => {
             
             <div className="mt-10 flex items-center gap-4 animate-slideUp" style={{ animationDelay: '500ms' }}>
               <div className="flex -space-x-2">
-                {[...Array(4)].map((_, i) => (
+                {['P', 'U', 'N', 'T'].map((letter, i) => (
                   <div key={i} className="w-8 h-8 rounded-full bg-primary/10 border border-white flex items-center justify-center text-xs font-medium text-primary">
-                    {String.fromCharCode(65 + i)}
+                    {letter}
                   </div>
                 ))}
               </div>
