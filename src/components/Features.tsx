@@ -1,5 +1,4 @@
-
-import { BookOpen, ChartBar, Smartphone } from "lucide-react";
+import { BookOpen, ChartBar, Smartphone, Trophy, Users, Award } from "lucide-react";
 
 const features = [
   {
@@ -11,6 +10,21 @@ const features = [
     icon: ChartBar,
     title: "Performance Insights",
     description: "Interactive charts for tracking success",
+  },
+  {
+    icon: Trophy,
+    title: "Fantasy Leagues",
+    description: "Compete with friends in exciting competitions",
+  },
+  {
+    icon: Award,
+    title: "Special Power-ups",
+    description: "Use strategic chips to boost your fantasy score",
+  },
+  {
+    icon: Users,
+    title: "Social Experience",
+    description: "Connect and compete with other punters",
   },
   {
     icon: Smartphone,
@@ -28,11 +42,11 @@ export const Features = () => {
             Key Features
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Everything you need to track and improve your betting performance
+            Everything you need to track bets and dominate fantasy leagues
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <div
               key={index}
