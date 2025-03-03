@@ -17,7 +17,7 @@ export const Header = () => {
   });
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navItemsRef = useRef<Map<string, HTMLElement>>(new Map());
-  const loginRef = useRef<HTMLElement | null>(null);
+  const loginRef = useRef<HTMLAnchorElement>(null);
   
   // Handle scroll effect
   useEffect(() => {
