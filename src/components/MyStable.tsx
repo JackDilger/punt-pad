@@ -21,6 +21,7 @@ interface Horse {
   result?: 'win' | 'place' | 'loss';
   points: number;
   achievement?: 'best_performer' | 'consistent' | 'underdog';
+  odds: number | null;
 }
 
 interface StableData {
@@ -38,19 +39,23 @@ export default function MyStable() {
 
   useEffect(() => {
     const fetchStableData = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
+        const session = await supabase.auth.getSession();
+        if (!session.data.session) {
+          throw new Error("No active session");
+        }
         
         // Fetch user profile to get team name
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('team_name')
-          .eq('id', session?.user.id)
+          .eq('id', session.data.session?.user.id)
           .single();
           
         if (profileError) throw profileError;
         
-        // Fetch user's selections with horse and race data
+        // Fetch user selections with horse and race data
         const { data: selectionsData, error: selectionsError } = await supabase
           .from('fantasy_selections')
           .select(`
@@ -67,10 +72,31 @@ export default function MyStable() {
               name
             )
           `)
-          .eq('user_id', session?.user.id)
-          .not('submitted_at', 'is', null);
+          .eq('user_id', session.data.session?.user.id);
+        
+        if (selectionsError) {
+          console.error("Error fetching stable data:", selectionsError);
+          throw selectionsError;
+        }
+        
+        // Fetch odds data for all horses
+        const horseIds = selectionsData.map((selection: any) => selection.horse_id);
+        const { data: oddsData, error: oddsError } = await supabase
+          .from('fantasy_horses')
+          .select('id, fixed_odds')
+          .in('id', horseIds);
           
-        if (selectionsError) throw selectionsError;
+        if (oddsError) {
+          console.error("Error fetching odds data:", oddsError);
+        }
+        
+        // Create a map of horse IDs to odds
+        const oddsMap = new Map();
+        if (oddsData) {
+          oddsData.forEach((horse: any) => {
+            oddsMap.set(horse.id, horse.fixed_odds);
+          });
+        }
         
         // Transform the data
         const horses: Horse[] = selectionsData.map((selection: any) => {
@@ -88,6 +114,7 @@ export default function MyStable() {
             points: points,
             result: selection.horses.result,
             race_name: selection.races.name,
+            odds: oddsMap.get(selection.horses.id) || null,
           };
         });
         
@@ -154,7 +181,22 @@ export default function MyStable() {
         return null;
     }
   };
-  
+
+  const getResultColor = (result?: 'win' | 'place' | 'loss') => {
+    if (!result) return 'bg-gray-300';
+    
+    switch (result) {
+      case 'win':
+        return 'bg-yellow-500';
+      case 'place':
+        return 'bg-gray-500';
+      case 'loss':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-300';
+    }
+  };
+
   // Function to trigger confetti effect
   const triggerConfetti = () => {
     // Only run in browser environment
@@ -183,14 +225,23 @@ export default function MyStable() {
   };
 
   const handleHorseClick = async (horse: any) => {
-    if (horse.result === 'win') {
-      // Dynamically import confetti only when needed
-      const confetti = (await import('canvas-confetti')).default;
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+    if (horse.result === 'win' && typeof window !== 'undefined') {
+      try {
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined') return;
+        
+        // Dynamically import confetti only when needed
+        const confettiModule = await import('canvas-confetti');
+        const confetti = confettiModule.default;
+        
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } catch (error) {
+        console.error("Failed to load confetti:", error);
+      }
     }
   };
 
@@ -201,6 +252,23 @@ export default function MyStable() {
     if (activeTab === "losers") return horse.result === 'loss';
     return true;
   });
+
+  const formatResult = (result: 'win' | 'place' | 'loss') => {
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  };
+
+  const formatAchievement = (achievement: 'best_performer' | 'consistent' | 'underdog') => {
+    switch (achievement) {
+      case 'best_performer':
+        return 'Top Performer';
+      case 'consistent':
+        return 'Consistent';
+      case 'underdog':
+        return 'Underdog';
+      default:
+        return '';
+    }
+  };
 
   return (
     <div className="space-y-6 overflow-visible">
@@ -311,52 +379,49 @@ export default function MyStable() {
                       <div className="mt-3 text-center">
                         <h3 className="font-semibold text-sm truncate max-w-[120px]">{horse.name}</h3>
                         <p className="text-xs text-muted-foreground mt-1 truncate max-w-[120px]">{horse.race_name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Odds: {horse.odds ? `${horse.odds}/1` : 'N/A'}</p>
                       </div>
                     </div>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-64 p-0">
+                  <HoverCardContent className="w-72 p-0">
                     <div className="p-4 space-y-2">
                       <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${
-                          horse.result === 'win' 
-                            ? 'bg-yellow-500' 
-                            : horse.result === 'place'
-                            ? 'bg-gray-500'
-                            : 'bg-red-500'
-                        }`} />
+                        <div className={`w-6 h-6 rounded-full ${getResultColor(horse.result)}`}></div>
                         <h4 className="font-bold">{horse.name}</h4>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1">{horse.race_name}</p>
                       
-                      <p className="text-xs text-muted-foreground">{horse.race_name}</p>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4">
                         <div>
                           <p className="text-xs text-muted-foreground">Result</p>
-                          <p className={`font-medium ${
+                          <p className={`font-medium truncate ${
                             horse.result === 'win' 
                               ? 'text-yellow-600' 
                               : horse.result === 'place'
                               ? 'text-gray-600'
-                              : 'text-red-600'
+                              : horse.result === 'loss'
+                              ? 'text-red-600'
+                              : ''
                           }`}>
-                            {horse.result ? horse.result.charAt(0).toUpperCase() + horse.result.slice(1) : 'Unknown'}
+                            {horse.result ? formatResult(horse.result) : 'Unknown'}
                           </p>
                         </div>
                         
                         <div>
                           <p className="text-xs text-muted-foreground">Points</p>
-                          <p className="font-medium">{horse.points}</p>
+                          <p className="font-medium truncate">{horse.points}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-xs text-muted-foreground">Odds</p>
+                          <p className="font-medium truncate">{horse.odds ? `${horse.odds}/1` : 'N/A'}</p>
                         </div>
                         
                         {horse.achievement && (
-                          <div className="col-span-2">
+                          <div>
                             <p className="text-xs text-muted-foreground">Achievement</p>
-                            <p className="font-medium">
-                              {horse.achievement === 'best_performer' 
-                                ? 'Top Performer' 
-                                : horse.achievement === 'consistent'
-                                ? 'Consistent'
-                                : 'Underdog'}
+                            <p className="font-medium truncate">
+                              {formatAchievement(horse.achievement)}
                             </p>
                           </div>
                         )}
