@@ -2061,55 +2061,61 @@ export default function FantasyLeague() {
           </TabsList>
 
           <TabsContent value="selections">
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden min-h-[500px]">
               <CardContent className="p-0">
-                <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
-                  <TabsList className="w-full">
-                    {festivalDays.map((day) => (
-                      <TabsTrigger
-                        key={day.id}
-                        value={day.id}
-                        onClick={() => setSelectedDay(day)}
-                        className="flex-1 rounded-none data-[state=active]:bg-background flex flex-col items-center space-y-1 py-2"
-                        disabled={loading}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>{day.name}</span>
-                          {!isBeforeCutoffTime(day) && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-full">
-                                    <Lock className="h-3 w-3" />
-                                    Locked
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          <span>{format(new Date(day.date), 'EEE do MMM')}</span>
-                          {day.cutoff_time && (
-                            <>
-                              <span className="mx-1">·</span>
-                              <span>Deadline {format(new Date(day.cutoff_time), 'h:mmaaa')}</span>
-                            </>
-                          )}
-                        </div>
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+                {loading ? (
+                  <div className="flex items-center justify-center h-[500px]">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
+                    <TabsList className="w-full">
+                      {festivalDays.map((day) => (
+                        <TabsTrigger
+                          key={day.id}
+                          value={day.id}
+                          onClick={() => setSelectedDay(day)}
+                          className="flex-1 rounded-none data-[state=active]:bg-background flex flex-col items-center space-y-1 py-2"
+                          disabled={loading}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>{day.name}</span>
+                            {!isBeforeCutoffTime(day) && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-full">
+                                      <Lock className="h-3 w-3" />
+                                      Locked
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            <span>{format(new Date(day.date), 'EEE do MMM')}</span>
+                            {day.cutoff_time && (
+                              <>
+                                <span className="mx-1">·</span>
+                                <span>Deadline {format(new Date(day.cutoff_time), 'h:mmaaa')}</span>
+                              </>
+                            )}
+                          </div>
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
 
-                  {festivalDays.map((day) => (
-                    <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
-                      {renderDayContent(day)}
-                    </TabsContent>
-                  ))}
-                </Tabs>
+                    {festivalDays.map((day) => (
+                      <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
+                        {renderDayContent(day)}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
