@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,6 +12,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import raceIds from "@/data/race-ids.json";
 // Dynamic import of confetti will be used inside component
 
 interface Horse {
@@ -37,9 +39,21 @@ export default function MyStable() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // State for day filter
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // Use day IDs from the race-ids.json file with day numbers
+  const days = [
+    { id: raceIds.days.day1.id, name: `1: ${raceIds.days.day1.name}` },
+    { id: raceIds.days.day2.id, name: `2: ${raceIds.days.day2.name}` },
+    { id: raceIds.days.day3.id, name: `3: ${raceIds.days.day3.name}` },
+    { id: raceIds.days.day4.id, name: `4: ${raceIds.days.day4.name}` }
+  ];
+  const [selectionsData, setSelectionsData] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchStableData = async () => {
       setLoading(true);
+      
       try {
         const session = await supabase.auth.getSession();
         if (!session.data.session) {
@@ -62,6 +76,7 @@ export default function MyStable() {
             id,
             horse_id,
             race_id,
+            day_id,
             horses:horse_id (
               id,
               name,
@@ -73,12 +88,15 @@ export default function MyStable() {
             )
           `)
           .eq('user_id', session.data.session?.user.id);
-        
+
         if (selectionsError) {
           console.error("Error fetching stable data:", selectionsError);
           throw selectionsError;
         }
-        
+
+        // Store selections data for filtering by day
+        setSelectionsData(selectionsData || []);
+
         // Fetch odds data for all horses
         const horseIds = selectionsData.map((selection: any) => selection.horse_id);
         const { data: oddsData, error: oddsError } = await supabase
@@ -164,7 +182,7 @@ export default function MyStable() {
       fetchStableData();
     }
   }, [session, toast]);
-  
+
   const getResultIcon = (result?: 'win' | 'place' | 'loss') => {
     switch (result) {
       case 'win':
@@ -200,8 +218,9 @@ export default function MyStable() {
   // Function to trigger confetti effect
   const triggerConfetti = () => {
     // Only run in browser environment
-    if (typeof window !== 'undefined') {
-      // Dynamically import confetti
+    if (typeof window === 'undefined') return;
+    
+    try {
       import('canvas-confetti').then((confettiModule) => {
         const confetti = confettiModule.default;
         confetti({
@@ -209,9 +228,9 @@ export default function MyStable() {
           spread: 70,
           origin: { y: 0.6 }
         });
-      }).catch(err => {
-        console.error("Failed to load confetti:", err);
       });
+    } catch (error) {
+      console.error("Failed to load confetti:", error);
     }
   };
 
@@ -245,13 +264,32 @@ export default function MyStable() {
     }
   };
 
-  const filteredHorses = stableData?.horses.filter(horse => {
-    if (activeTab === "all") return true;
-    if (activeTab === "winners") return horse.result === 'win';
-    if (activeTab === "placed") return horse.result === 'place';
-    if (activeTab === "losers") return horse.result === 'loss';
-    return true;
-  });
+  // Filter horses by selected day and tab
+  const filteredHorses = useMemo(() => {
+    // First filter by day
+    let filtered = stableData?.horses || [];
+    
+    if (selectedDay) {
+      console.log("Filtering by day:", selectedDay);
+      
+      filtered = filtered.filter(horse => {
+        // Find the original selection to check its day_id
+        const selection = selectionsData?.find((s: any) => s.horse_id === horse.id);
+        console.log("Horse:", horse.name, "Selection day_id:", selection?.day_id);
+        
+        // Compare as strings to ensure proper comparison
+        return selection?.day_id === selectedDay;
+      });
+    }
+    
+    // Then filter by tab
+    if (activeTab === "all") return filtered;
+    if (activeTab === "winners") return filtered.filter(horse => horse.result === 'win');
+    if (activeTab === "placed") return filtered.filter(horse => horse.result === 'place');
+    if (activeTab === "losers") return filtered.filter(horse => horse.result === 'loss');
+    
+    return filtered;
+  }, [stableData, selectedDay, selectionsData, activeTab]);
 
   const formatResult = (result: 'win' | 'place' | 'loss') => {
     return result.charAt(0).toUpperCase() + result.slice(1);
@@ -273,10 +311,26 @@ export default function MyStable() {
   return (
     <div className="space-y-6 overflow-visible">
       <div className="flex flex-col space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center">
-          <Trophy className="mr-2 h-6 w-6 text-primary animate-pulse" />
-          {stableData?.team_name} Stable
-        </h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold flex items-center">
+            <Trophy className="mr-2 h-6 w-6 text-primary animate-pulse" />
+            {stableData?.team_name} Stable
+          </h1>
+          <div className="flex items-center space-x-2">
+            <p className="text-sm text-muted-foreground">Filter by day:</p>
+            <Select value={selectedDay || "all"} onValueChange={(value) => setSelectedDay(value === "all" ? null : value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All days" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All days</SelectItem>
+                {days.map((day) => (
+                  <SelectItem key={day.id} value={day.id}>{day.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
       
       <Tabs 
