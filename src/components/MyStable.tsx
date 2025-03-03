@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, X, Loader2, Star, Target, Zap, Rocket } from "lucide-react";
+import { Trophy, Medal, X, Loader2, Star, Target, Zap, Rocket, Award, Flame, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HorseIcon from "./HorseIcon";
 import {
@@ -378,6 +378,20 @@ export default function MyStable() {
     }
   };
 
+  // Function to get achievement icon
+  const getAchievementIcon = (achievement?: 'best_performer' | 'consistent' | 'underdog') => {
+    switch (achievement) {
+      case 'best_performer':
+        return <Trophy className="h-4 w-4 text-yellow-500" />;
+      case 'consistent':
+        return <TrendingUp className="h-4 w-4 text-gray-400" />;
+      case 'underdog':
+        return <Award className="h-4 w-4 text-purple-500" />;
+      default:
+        return null;
+    }
+  };
+
   // Filter horses by selected day and tab
   const filteredHorses = useMemo(() => {
     // First filter by day
@@ -531,8 +545,8 @@ export default function MyStable() {
                               </div>
                             )}
                             {horse.achievement === 'consistent' && (
-                              <div className="bg-blue-500 text-white p-1 rounded-full">
-                                <Medal className="h-4 w-4" />
+                              <div className="bg-gray-400 text-white p-1 rounded-full">
+                                <TrendingUp className="h-4 w-4" />
                               </div>
                             )}
                             {horse.achievement === 'underdog' && (
@@ -586,7 +600,7 @@ export default function MyStable() {
                       {horse.achievement && (
                         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                           <div className="flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-yellow-500" />
+                            {getAchievementIcon(horse.achievement)}
                             <span className="text-sm font-medium">
                               {horse.achievement === 'best_performer' ? 'Best Performer' :
                                horse.achievement === 'consistent' ? 'Consistent Performer' :
