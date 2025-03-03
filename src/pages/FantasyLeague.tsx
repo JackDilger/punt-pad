@@ -1511,20 +1511,29 @@ export default function FantasyLeague() {
                         >
                           <SelectTrigger 
                             className={cn(
-                              "w-[200px]",
+                              "w-[250px]",
                               race.selected_horse_id && "border-green-500"
                             )}
                           >
-                            <SelectValue placeholder="Select a horse" />
+                            <SelectValue placeholder="Select a horse">
+                              {race.horses?.find(h => h.id === race.selected_horse_id)?.name && (
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="truncate mr-4">
+                                    {race.horses?.find(h => h.id === race.selected_horse_id)?.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-muted-foreground">
+                                    {toFractionalOdds(race.horses?.find(h => h.id === race.selected_horse_id)?.fixed_odds)}
+                                  </span>
+                                </div>
+                              )}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {race.horses?.map((horse) => (
                               <SelectItem key={horse.id} value={horse.id}>
-                                <div className="flex items-center w-full gap-2">
-                                  <span className="flex-grow">{horse.name}</span>
-                                  <span className="text-sm">
-                                    {toFractionalOdds(horse.fixed_odds)}
-                                  </span>
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="flex-grow truncate mr-4">{horse.name}</span>
+                                  <span className="flex-shrink-0 text-muted-foreground">{toFractionalOdds(horse.fixed_odds)}</span>
                                 </div>
                               </SelectItem>
                             ))}
