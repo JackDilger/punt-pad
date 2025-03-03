@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => ({
       clientPort: 8080
     }
   },
+  preview: {
+    port: 4173, // Different port for preview
+    strictPort: true,
+    host: true,
+    cors: true
+  },
   plugins: [
     react(),
     // Gzip compression
