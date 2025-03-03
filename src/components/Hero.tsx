@@ -78,28 +78,10 @@ export const Hero = () => {
           </div>
           
           {/* Right side: Visual elements */}
-          <div className="hidden lg:block relative">
-            {/* Main card */}
-            <div className="absolute top-0 right-0 w-[90%] h-auto aspect-[4/3] bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200 rotate-3 z-10 animate-float">
-              <div className="bg-primary px-6 py-4 text-white">
-                <h3 className="font-heading font-bold text-xl">My Betting Dashboard</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="h-8 bg-gray-100 rounded-md w-3/4"></div>
-                  <div className="h-32 bg-gray-100 rounded-md"></div>
-                  <div className="h-8 bg-gray-100 rounded-md w-1/2"></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="h-24 bg-red-100 rounded-md"></div>
-                    <div className="h-24 bg-red-100 rounded-md"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Secondary card */}
-            <div className="absolute bottom-0 left-0 w-[80%] h-auto aspect-[3/2] bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 -rotate-6 animate-float" style={{ animationDelay: '1s' }}>
-              <div className="bg-accent/90 px-6 py-4 text-gray-900">
+          <div className="hidden lg:block relative w-full max-w-lg mx-auto mt-8 lg:mt-0">
+            {/* Primary card - Fantasy League */}
+            <div className="relative w-full h-auto aspect-[3/2] bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 z-20">
+              <div className="bg-accent px-6 py-4 text-gray-900">
                 <h3 className="font-heading font-bold text-xl">Fantasy League</h3>
               </div>
               <div className="p-6">
@@ -109,6 +91,22 @@ export const Hero = () => {
                     <div className="h-10 bg-gray-100 rounded-md"></div>
                     <div className="h-10 bg-gray-100 rounded-md"></div>
                     <div className="h-10 bg-red-100 rounded-md"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Secondary card - Dashboard */}
+            <div className="absolute top-0 right-0 w-[80%] h-auto aspect-[3/2] bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 rotate-6 animate-float" style={{ animationDelay: '1s', transformOrigin: 'top right' }}>
+              <div className="bg-primary px-6 py-4 text-white">
+                <h3 className="font-heading font-bold text-xl">My Betting Dashboard</h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div className="h-8 bg-gray-100 rounded-md w-1/2"></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="h-24 bg-red-100 rounded-md"></div>
+                    <div className="h-24 bg-red-100 rounded-md"></div>
                   </div>
                 </div>
               </div>
