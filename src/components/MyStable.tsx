@@ -220,7 +220,7 @@ export default function MyStable() {
         <TabsList className="w-full max-w-md mx-auto grid grid-cols-4 h-14 p-1 bg-muted/20 rounded-full">
           <TabsTrigger 
             value="all" 
-            className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
+            className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-white font-bold transition-all"
           >
             All
           </TabsTrigger>
