@@ -150,13 +150,71 @@ export default function MyStable() {
           // Best performer is the horse with the most points
           horsesWithAchievements[0].achievement = 'best_performer';
           
-          // Find an underdog (a horse that won despite odds)
-          const underdogIndex = horsesWithAchievements.findIndex(
-            (horse) => horse.result === 'win' && horse.points > 0 && horse !== horsesWithAchievements[0]
-          );
+          // Find an underdog (high odds winner)
+          console.log("Looking for underdogs among:", horsesWithAchievements.map(h => ({ 
+            name: h.name, 
+            result: h.result, 
+            odds: h.odds, 
+            points: h.points 
+          })));
           
-          if (underdogIndex !== -1) {
-            horsesWithAchievements[underdogIndex].achievement = 'underdog';
+          // Find winners with high odds
+          const winners = horsesWithAchievements.filter(horse => horse.result === 'win');
+          console.log("Winners:", winners.map(h => ({ name: h.name, odds: h.odds })));
+          
+          // Specific check for Readin Tommy Wrong
+          const readinTommy = horsesWithAchievements.find(h => h.name.includes("Readin Tommy"));
+          if (readinTommy) {
+            console.log("Found Readin Tommy Wrong:", JSON.stringify(readinTommy, null, 2));
+            console.log("Result type:", typeof readinTommy.result, "Result value:", readinTommy.result);
+            console.log("Odds type:", typeof readinTommy.odds, "Odds value:", readinTommy.odds);
+            
+            // Check if odds are stored as a number
+            if (readinTommy.result === 'win') {
+              if (typeof readinTommy.odds === 'number' && readinTommy.odds >= 8) {
+                console.log("Readin Tommy Wrong is an underdog (numeric odds)");
+                readinTommy.achievement = 'underdog';
+              } else if (typeof readinTommy.odds === 'string') {
+                try {
+                  const [numerator, denominator] = readinTommy.odds.split('/').map(Number);
+                  if (!isNaN(numerator) && numerator >= 8) {
+                    console.log("Readin Tommy Wrong is an underdog (string odds)");
+                    readinTommy.achievement = 'underdog';
+                  }
+                } catch (error) {
+                  console.error('Error parsing odds:', error);
+                }
+              }
+            }
+          } else {
+            console.log("Could not find Readin Tommy Wrong");
+          }
+          
+          // Find underdogs (winners with high odds)
+          if (!readinTommy || readinTommy.achievement !== 'underdog') {
+            for (const horse of winners) {
+              if (horse.result === 'win') {
+                // Check numeric odds
+                if (typeof horse.odds === 'number' && horse.odds >= 8) {
+                  console.log(`Found underdog: ${horse.name} with numeric odds ${horse.odds}`);
+                  horse.achievement = 'underdog';
+                  break;
+                }
+                // Check string odds
+                else if (horse.odds && typeof horse.odds === 'string') {
+                  try {
+                    const [numerator, denominator] = horse.odds.split('/').map(Number);
+                    if (!isNaN(numerator) && numerator >= 8) {
+                      console.log(`Found underdog: ${horse.name} with string odds ${horse.odds}`);
+                      horse.achievement = 'underdog';
+                      break;
+                    }
+                  } catch (error) {
+                    console.error(`Error parsing odds for ${horse.name}:`, error);
+                  }
+                }
+              }
+            }
           }
           
           // Find a consistent performer (multiple places)
