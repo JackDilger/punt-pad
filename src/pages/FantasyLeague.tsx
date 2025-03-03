@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { UpdateLeagueTable } from '@/components/UpdateLeagueTable';
+import MyStable from '@/components/MyStable';
 
 interface FestivalDay {
   id: string;
@@ -2031,13 +2032,8 @@ export default function FantasyLeague() {
 
           <TabsContent value="my-stable" className="space-y-4">
             <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">My Stable</h2>
-                <p className="text-sm text-muted-foreground">View all your selected horses and their performance</p>
-              </CardHeader>
-              <CardContent>
-                {/* My Stable content will go here */}
-                <div className="text-muted-foreground">Coming soon...</div>
+              <CardContent className="pt-6">
+                <MyStable />
               </CardContent>
             </Card>
           </TabsContent>
