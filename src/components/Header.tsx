@@ -18,6 +18,7 @@ export const Header = () => {
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navItemsRef = useRef<Map<string, HTMLElement>>(new Map());
   const loginRef = useRef<HTMLAnchorElement>(null);
+  const signOutRef = useRef<HTMLButtonElement>(null);
   
   // Handle scroll effect
   useEffect(() => {
@@ -59,6 +60,10 @@ export const Header = () => {
     updatePillStyle(loginRef.current);
   };
 
+  const handleSignOutMouseEnter = () => {
+    updatePillStyle(signOutRef.current);
+  };
+
   const handleMouseLeave = () => {
     setPillStyle(prev => ({ ...prev, opacity: 0 }));
   };
@@ -83,8 +88,7 @@ export const Header = () => {
   const navItems = session ? [
     { id: "dashboard", label: "Dashboard", to: "/dashboard" },
     { id: "my-bets", label: "My Bets", to: "/my-bets" },
-    { id: "fantasy-league", label: "Fantasy League", to: "/fantasy-league" },
-    { id: "sign-out", label: "Sign Out", to: "#", onClick: handleLogout, isButton: true }
+    { id: "fantasy-league", label: "Fantasy League", to: "/fantasy-league" }
   ] : [
     { id: "pricing", label: "Pricing", to: "/" },
     { id: "features", label: "Features", to: "/" },
@@ -128,34 +132,19 @@ export const Header = () => {
             />
             
             <nav className="flex items-center space-x-8">
-              {navItems.map((item) => 
-                item.isButton ? (
-                  <Button
-                    key={item.id}
-                    variant="ghost"
-                    onClick={item.onClick}
-                    ref={(el) => {
-                      if (el) navItemsRef.current.set(item.id, el);
-                    }}
-                    onMouseEnter={() => handleNavItemMouseEnter(item.id)}
-                    className="px-3 py-2 text-gray-600 text-sm font-medium"
-                  >
-                    {item.label}
-                  </Button>
-                ) : (
-                  <Link 
-                    key={item.id}
-                    to={item.to}
-                    ref={(el) => {
-                      if (el) navItemsRef.current.set(item.id, el);
-                    }}
-                    onMouseEnter={() => handleNavItemMouseEnter(item.id)}
-                    className="px-3 py-2 text-gray-600 text-sm font-medium"
-                  >
-                    {item.label}
-                  </Link>
-                )
-              )}
+              {navItems.map((item) => (
+                <Link 
+                  key={item.id}
+                  to={item.to}
+                  ref={(el) => {
+                    if (el) navItemsRef.current.set(item.id, el);
+                  }}
+                  onMouseEnter={() => handleNavItemMouseEnter(item.id)}
+                  className="px-3 py-2 text-gray-600 text-sm font-medium"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
           </div>
 
@@ -165,10 +154,19 @@ export const Header = () => {
             onMouseLeave={handleMouseLeave}
           >
             {session ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
                   {session.user.email?.charAt(0).toUpperCase() || "U"}
                 </div>
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  ref={signOutRef}
+                  onMouseEnter={handleSignOutMouseEnter}
+                  className="px-3 py-2 text-gray-600 text-sm font-medium"
+                >
+                  Sign Out
+                </Button>
               </div>
             ) : (
               <>
