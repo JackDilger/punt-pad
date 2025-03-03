@@ -3,15 +3,19 @@ import { Link } from "react-router-dom";
 
 export const FantasyLeaguePreview = () => {
   return (
-    <section className="py-20 my-16 bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-md mx-4 sm:mx-8 lg:mx-12 border border-green-200/50 relative overflow-hidden">
+    <section className="py-16 my-8 bg-white rounded-xl shadow-lg mx-4 sm:mx-8 lg:mx-12 border border-gray-100 relative overflow-hidden">
       {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-green-200/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white to-white z-0"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/3 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/3 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+      
+      {/* Subtle pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(2,166,79,0.02)_1px,transparent_1px)] bg-[length:20px_20px] z-0"></div>
       
       <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center mb-16">
-          <div className="flex items-center justify-center mb-6">
-            <Trophy className="h-12 w-12 text-accent mr-3 animate-pulse" />
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center mb-4">
+            <Trophy className="h-12 w-12 text-[#fdee21] mr-3" />
             <h2 className="font-heading text-3xl sm:text-4xl font-bold text-primary">
               Fantasy Leagues
             </h2>
@@ -23,7 +27,7 @@ export const FantasyLeaguePreview = () => {
 
         <div className="grid md:grid-cols-2 gap-12 items-center">
           {/* Left side: Feature descriptions */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div className="flex gap-4">
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <Users className="h-6 w-6 text-primary" />
@@ -54,7 +58,7 @@ export const FantasyLeaguePreview = () => {
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="mt-6">
               <Link to="/auth" className="inline-flex items-center px-6 py-3 text-lg font-medium text-white bg-primary rounded-lg shadow-lg hover:bg-primary-hover transform transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                 Join Fantasy League
                 <ChevronRight className="ml-2 h-5 w-5" />
@@ -83,7 +87,7 @@ export const FantasyLeaguePreview = () => {
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-medium ${
                             player.position === 1 
-                              ? "bg-yellow-500" 
+                              ? "bg-[#fdee21] text-gray-900" 
                               : player.position === 2 
                               ? "bg-gray-400" 
                               : player.position === 3 
