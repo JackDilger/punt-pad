@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, AlertCircle, Loader2, Star } from "lucide-react";
+import { Trophy, Medal, Award, X, Loader2, Star } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   HoverCard,
@@ -137,14 +137,18 @@ export default function MyStable() {
     }
   }, [session, toast]);
   
-  const getResultIcon = (result: string | null) => {
+  const getResultIcon = (result?: 'win' | 'place' | 'loss') => {
     switch (result) {
       case 'win':
-        return <Trophy className="h-5 w-5 text-yellow-500" />;
+        return <Star className="h-5 w-5 text-yellow-500" />;
       case 'place':
         return <Medal className="h-5 w-5 text-gray-400" />;
       case 'loss':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return (
+          <div className="bg-red-500 rounded-full p-0.5">
+            <X className="h-4 w-4 text-white" />
+          </div>
+        );
       default:
         return null;
     }
