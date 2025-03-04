@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { UpdateLeagueTable } from '@/components/UpdateLeagueTable';
+import MyStable from '@/components/MyStable';
 
 interface FestivalDay {
   id: string;
@@ -201,7 +202,6 @@ export default function FantasyLeague() {
   ]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
   const [loadingStandings, setLoadingStandings] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("selections");
@@ -234,18 +234,6 @@ export default function FantasyLeague() {
       }
     }
   }, [festivalDays]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (activeTab === "league-table") {
@@ -580,66 +568,30 @@ export default function FantasyLeague() {
       return;
     }
 
-    setHasUnsavedChanges(true);
+    // If a chip is active, open the confirmation dialog instead of just selecting the horse
     if (activeChip) {
-      // Check if this specific chip has been used
-      const isChipAlreadyUsed = chips.find(c => c.id === activeChip)?.used;
-      if (isChipAlreadyUsed) {
-        toast({
-          title: "Chip Already Used",
-          description: "You have already used this chip. Each chip can only be used once during the festival, so choose wisely!",
-          variant: "destructive",
-        });
-        setActiveChip(null); // Reset active chip
-        return;
+      // Find the chip object to display in the confirmation dialog
+      const chipToApply = chips.find(c => c.id === activeChip);
+      if (chipToApply) {
+        setSelectedChip(chipToApply);
+        setPendingChipRaceId(raceId);
+        setChipConfirmationOpen(true);
+        return; // Don't proceed with normal selection
       }
+    }
 
-      // Check if any race on the current day already has a chip
-      const hasChipForCurrentDay = selectedDay.races.some(race => {
-        const hasChip = race.chip !== undefined;
-        if (hasChip) {
-          console.log("DEBUG - Found race with chip:", race);
-        }
-        return hasChip;
-      });
+    try {
+      // Get the race to preserve any existing chip
+      const race = selectedDay.races.find(r => r.id === raceId);
+      const existingChip = race?.chip;
 
-      // Also check selections for this day that might not be reflected in the UI yet
-      const selectionsWithChips = selections.filter(s => 
-        // Only check selections for the current day
-        s.day_id === selectedDay.id && 
-        // And that have a chip
-        s.chip !== undefined
-      );
-      
-      const hasChipInSelections = selectionsWithChips.length > 0;
-      
-      console.log("DEBUG - selections for current day with chips:", selectionsWithChips);
-      console.log("DEBUG - hasChipInSelections:", hasChipInSelections);
-
-      if (hasChipForCurrentDay || hasChipInSelections) {
-        toast({
-          title: "Chip Already Used",
-          description: "You can only use one chip per day. You have already used a chip for this day's selections.",
-          variant: "destructive",
-        });
-        setActiveChip(null); // Reset active chip
-        return;
-      }
-
-      // Find the chip details for the confirmation dialog
-      const chipDetails = chips.find(c => c.id === activeChip);
-      setSelectedChip(chipDetails || null);
-      
-      // Show confirmation dialog before applying chip
-      setPendingChipRaceId(raceId);
-      setChipConfirmationOpen(true);
-    } else {
-      // Regular selection without chip
+      // Update selections in state
       const updatedSelections = selections.map(s => 
         s.race_id === raceId ? { ...s, horse_id: horseId } : s
       );
       setSelections(updatedSelections);
 
+      // Update festival days state
       setFestivalDays(days => days.map(day => ({
         ...day,
         races: day.races.map(race => 
@@ -654,10 +606,19 @@ export default function FantasyLeague() {
         const storageKey = `unsubmitted_selections_${dayId}`;
         const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
         storedSelections[raceId] = horseId;
+        // Save chip data if it exists
+        if (existingChip) {
+          storedSelections[`chip_${raceId}`] = existingChip;
+        }
         localStorage.setItem(storageKey, JSON.stringify(storedSelections));
       }
-
-      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error("Error in handleHorseSelect:", error);
+      toast({
+        title: "Error",
+        description: "There was an error processing your selection.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -668,10 +629,17 @@ export default function FantasyLeague() {
       
       return {
         ...day,
-        races: day.races.map(race => ({
-          ...race,
-          selected_horse_id: storedSelections[race.id] || race.selected_horse_id
-        }))
+        races: day.races.map(race => {
+          // Check for chip data in localStorage (with the chip_ prefix)
+          const chipKey = `chip_${race.id}`;
+          const chipFromStorage = storedSelections[chipKey] as ChipType | undefined;
+          
+          return {
+            ...race,
+            selected_horse_id: storedSelections[race.id] || race.selected_horse_id,
+            chip: chipFromStorage || race.chip // Use chip from storage if available
+          };
+        })
       };
     });
   };
@@ -706,33 +674,6 @@ export default function FantasyLeague() {
     const selectedRaces = day.races.filter(race => race.selected_horse_id).length;
     return (selectedRaces / totalRaces) * 100;
   }, []);
-
-  useEffect(() => {
-    fetchFestivalDays();
-  }, []);
-
-  useEffect(() => {
-    if (festivalDays.length > 0) {
-      if (!selectedDay) {
-        setSelectedDay(festivalDays[0]);
-      }
-      if (!selectedDayTab) {
-        setSelectedDayTab(festivalDays[0].id);
-      }
-    }
-  }, [festivalDays]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
 
   const handleSubmitSelections = async () => {
     try {
@@ -792,7 +733,6 @@ export default function FantasyLeague() {
       // Fetch fresh data to ensure everything is in sync
       await fetchFestivalDays();
 
-      setHasUnsavedChanges(false);
       setSubmissionDialogOpen(false);
       
       toast({
@@ -1133,7 +1073,29 @@ export default function FantasyLeague() {
     try {
       console.log("Starting chip application process", { raceId, chip: currentChip });
       
-      // Apply chip to the selection
+      // Find the race
+      const race = selectedDay.races.find(r => r.id === raceId);
+      if (!race) return;
+
+      // Check localStorage for selection
+      const storageKey = `unsubmitted_selections_${selectedDay.id}`;
+      const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const hasStoredSelection = storedSelections[raceId];
+      
+      // Check if we have a selection either in race state or localStorage
+      if (!race.selected_horse_id && !hasStoredSelection) {
+        toast({
+          title: "No Horse Selected",
+          description: "Please select a horse before applying a chip.",
+          variant: "destructive",
+        });
+        setChipConfirmationOpen(false);
+        setPendingChipRaceId(null);
+        setSelectedChip(null);
+        return;
+      }
+
+      // Update selections in state
       const updatedSelections = selections.map(s => 
         s.race_id === raceId ? { ...s, chip: currentChip } : s
       );
@@ -1149,70 +1111,16 @@ export default function FantasyLeague() {
         )
       })));
 
+      // Save to localStorage
+      storedSelections[`chip_${raceId}`] = currentChip;
+      localStorage.setItem(storageKey, JSON.stringify(storedSelections));
+
       // Mark chip as used and reset active chip
       setChips(prevChips => prevChips.map(c => 
         c.id === currentChip ? { ...c, used: true } : c
       ));
       setActiveChip(null);
 
-      // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        console.error("No user ID found");
-        return;
-      }
-
-      // Find existing selection for this race
-      const existingSelection = selections.find(s => s.race_id === raceId);
-      
-      console.log("Database operation details:", { 
-        existingSelection, 
-        raceId, 
-        chip: currentChip,
-        dayId: selectedDay.id
-      });
-
-      if (existingSelection) {
-        // Update existing selection with chip
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .update({ 
-            chip: currentChip,
-            day_id: selectedDay.id  // Ensure the day_id is set correctly
-          })
-          .eq('id', existingSelection.id);
-
-        if (error) {
-          console.error("Error updating selection with chip:", error);
-          toast({
-            title: "Error",
-            description: "There was an error saving your selection with chip.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Create new selection with chip
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .insert({
-            user_id: user.id,
-            horse_id: "placeholder",
-            race_id: raceId,
-            day_id: selectedDay.id,
-            chip: currentChip
-          });
-
-        if (error) {
-          console.error("Error creating selection with chip:", error);
-          toast({
-            title: "Error",
-            description: "There was an error saving your selection with chip.",
-            variant: "destructive",
-          });
-        }
-      }
-
-      setHasUnsavedChanges(false);
       toast({
         title: `${selectedChip.name} Applied`,
         description: `Your ${selectedChip.name} has been applied to this race.`,
@@ -1511,20 +1419,29 @@ export default function FantasyLeague() {
                         >
                           <SelectTrigger 
                             className={cn(
-                              "w-[200px]",
+                              "w-[250px]",
                               race.selected_horse_id && "border-green-500"
                             )}
                           >
-                            <SelectValue placeholder="Select a horse" />
+                            <SelectValue placeholder="Select a horse">
+                              {race.horses?.find(h => h.id === race.selected_horse_id)?.name && (
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="truncate mr-4">
+                                    {race.horses?.find(h => h.id === race.selected_horse_id)?.name}
+                                  </span>
+                                  <span className="flex-shrink-0 text-muted-foreground">
+                                    {toFractionalOdds(race.horses?.find(h => h.id === race.selected_horse_id)?.fixed_odds)}
+                                  </span>
+                                </div>
+                              )}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {race.horses?.map((horse) => (
                               <SelectItem key={horse.id} value={horse.id}>
-                                <div className="flex items-center w-full gap-2">
-                                  <span className="flex-grow">{horse.name}</span>
-                                  <span className="text-sm">
-                                    {toFractionalOdds(horse.fixed_odds)}
-                                  </span>
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="flex-grow truncate mr-4">{horse.name}</span>
+                                  <span className="flex-shrink-0 text-muted-foreground">{toFractionalOdds(horse.fixed_odds)}</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -1670,7 +1587,7 @@ export default function FantasyLeague() {
     );
   };
 
-  const deleteAllSelections = async () => {
+  const clearAllSelections = async () => {
     try {
       // Get the current user
       const user = (await supabase.auth.getUser()).data.user?.id;
@@ -1678,40 +1595,27 @@ export default function FantasyLeague() {
         console.error("No user ID found");
         return;
       }
-      
-      // Delete all selections for this user
+
+      // Clear selections from the database - for dev, delete all selections regardless of submission status
       const { error } = await supabase
         .from('fantasy_selections')
         .delete()
         .eq('user_id', user);
-        
+
       if (error) {
-        console.error("Error deleting selections:", error);
+        console.error("Error clearing selections:", error);
         toast({
           title: "Error",
-          description: "There was an error deleting selections.",
+          description: "There was an error clearing your selections.",
           variant: "destructive",
         });
         return;
       }
-      
-      // Reset league standings points to 0 for this user
-      const { error: standingsError } = await supabase
-        .from('fantasy_league_standings')
-        .update({ total_points: 0, updated_at: new Date().toISOString() })
-        .eq('user_id', user);
-        
-      if (standingsError) {
-        console.error("Error resetting standings:", standingsError);
-        // Continue anyway as the selections have been deleted
-      } else {
-        console.log("League standings reset to 0 points");
-      }
-      
-      // Clear local state
+
+      // Clear local state - for dev, clear all selections
       setSelections([]);
-      
-      // Clear UI state
+
+      // Clear selected_horse_id from festivalDays state
       setFestivalDays(days => days.map(day => ({
         ...day,
         races: day.races.map(race => ({
@@ -1721,22 +1625,29 @@ export default function FantasyLeague() {
         }))
       })));
 
-      // Reset chip usage state
-      setChips(prevChips => prevChips.map(c => ({
-        ...c,
-        used: false
-      })));
+      // Clear localStorage for all days
+      festivalDays.forEach(day => {
+        const storageKey = `unsubmitted_selections_${day.id}`;
+        localStorage.removeItem(storageKey);
+      });
 
       toast({
-        title: "Debug: Selections Deleted",
-        description: "All selections have been deleted for testing purposes.",
+        title: "Success",
+        description: "All selections have been cleared.",
       });
-      
-      // Refresh data
-      await fetchFestivalDays();
-      
-      // Refresh league standings
-      fetchLeagueStandings();
+    } catch (error) {
+      console.error("Error in clearAllSelections:", error);
+      toast({
+        title: "Error",
+        description: "There was an error clearing your selections.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteAllSelections = async () => {
+    try {
+      await clearAllSelections();
     } catch (error) {
       console.error("Error in deleteAllSelections:", error);
     }
@@ -2122,13 +2033,8 @@ export default function FantasyLeague() {
 
           <TabsContent value="my-stable" className="space-y-4">
             <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">My Stable</h2>
-                <p className="text-sm text-muted-foreground">View all your selected horses and their performance</p>
-              </CardHeader>
-              <CardContent>
-                {/* My Stable content will go here */}
-                <div className="text-muted-foreground">Coming soon...</div>
+              <CardContent className="pt-6">
+                <MyStable />
               </CardContent>
             </Card>
           </TabsContent>

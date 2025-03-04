@@ -1,4 +1,3 @@
-
 import { Instagram, Twitter, Github } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
@@ -11,12 +10,12 @@ export const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           {/* Brand Section */}
           <div className="col-span-1">
-            <h3 className="text-white font-heading text-xl font-bold mb-4">Meet your intelligent betting assistant</h3>
+            <h3 className="text-white font-heading text-xl font-bold mb-4">Your Betting Companion</h3>
             <p className="text-gray-400 mb-6">
               Puntpad
             </p>
             <Button asChild className="bg-primary hover:bg-primary-hover text-white">
-              <Link to="/signup">
+              <Link to="/auth">
                 Start Tracking
               </Link>
             </Button>
@@ -29,19 +28,24 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Sports Betting
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Horse Racing
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                  Fantasy Sports
-                </a>
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
+                  Fantasy Leagues
+                </Link>
+              </li>
+              <li>
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
+                  Group Competitions
+                </Link>
               </li>
             </ul>
           </div>
@@ -53,24 +57,24 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Bet Calculator
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Odds Converter
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Performance Analytics
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/auth" className="text-gray-400 hover:text-white transition-colors">
                   Strategy Builder
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -82,24 +86,24 @@ export const Footer = () => {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/" className="text-gray-400 hover:text-white transition-colors">
                   About Us
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/" className="text-gray-400 hover:text-white transition-colors">
                   Careers
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/" className="text-gray-400 hover:text-white transition-colors">
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link to="/" className="text-gray-400 hover:text-white transition-colors">
                   Terms of Service
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -108,7 +112,7 @@ export const Footer = () => {
         {/* Footer Bottom */}
         <div className="pt-8 border-t border-gray-700 flex flex-col md:flex-row justify-between items-center">
           <div className="text-gray-400 mb-4 md:mb-0">
-            © {new Date().getFullYear()} Puntpad, Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} Puntpad, Inc. All rights reserved.
           </div>
           <div className="flex space-x-6">
             <a href="#" className="text-gray-400 hover:text-white transition-colors">

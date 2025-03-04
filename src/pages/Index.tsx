@@ -4,6 +4,7 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { Testimonials } from "@/components/Testimonials";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { FantasyLeaguePreview } from "@/components/FantasyLeaguePreview";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 
@@ -19,6 +20,7 @@ const Index = () => {
       <Header />
       <Hero />
       <Features />
+      <FantasyLeaguePreview />
       <HowItWorks />
       <Testimonials />
       <Footer />
