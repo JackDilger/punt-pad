@@ -158,48 +158,54 @@ export default function FantasyLeague() {
   const [activeChip, setActiveChip] = useState<ChipType | null>(null);
   const [chipConfirmationOpen, setChipConfirmationOpen] = useState(false);
   const [pendingChipRaceId, setPendingChipRaceId] = useState<string | null>(null);
-  const [chips, setChips] = useState<Chip[]>([
-    {
-      id: 'superBoost',
-      name: '🚀 Super Boost',
-      description: 'Take your points to the moon! Use the Super Boost chip to 10x your points on any single selection. Be strategic—this chip can only be used once during the festival, so choose wisely!',
-      howItWorks: [
-        'Activate the chip by clicking "Play Super Boost".',
-        'Then, select the horse you want to apply it to.',
-        "If your selection wins, you'll receive 10 times the standard points.",
-        'Once played, the chip is locked and cannot be changed.',
-      ],
-      used: false,
-      buttonText: 'Play Super Boost'
-    },
-    {
-      id: 'doubleChance',
-      name: '🎯 Double Chance',
-      description: 'Improve your odds! The Double Chance chip counts a second-place finish as a win, giving you the full win points even if your horse finishes just behind the leader.',
-      howItWorks: [
-        'Click "Play Double Chance" to activate the chip.',
-        'Choose the race selection you want to apply it to.',
-        'Earn full win points if your selection finishes first or second.',
-        'Once applied, the chip cannot be moved to another selection.',
-      ],
-      used: false,
-      buttonText: 'Play Double Chance'
-    },
-    {
-      id: 'tripleThreat',
-      name: '⚖️ Triple Threat',
-      description: 'High risk, high reward! Use the Triple Threat chip to triple your points if your selection wins. However, if your horse loses, you\'ll get minus triple the potential points on offer!',
-      howItWorks: [
-        'Click "Play Triple Threat" to activate the chip.',
-        'Assign the chip to your chosen selection.',
-        'If your selection wins, you earn 3x the points. If it loses, you\'ll incur -3x the points.',
-        'The chip is locked to your selection once played.',
-        'Warning: Use this chip carefully—it can dramatically shift your position on the leaderboard!',
-      ],
-      used: false,
-      buttonText: 'Play Triple Threat'
-    }
-  ]);
+  const [chips, setChips] = useState<Chip[]>(() => {
+    // Try to load used chips from localStorage
+    const savedUsedChips = localStorage.getItem('fantasy_used_chips');
+    const usedChips = savedUsedChips ? new Set(JSON.parse(savedUsedChips)) : new Set<ChipType>();
+
+    return [
+      {
+        id: 'superBoost',
+        name: '🚀 Super Boost',
+        description: 'Take your points to the moon! Use the Super Boost chip to 10x your points on any single selection. Be strategic—this chip can only be used once during the festival, so choose wisely!',
+        howItWorks: [
+          'Activate the chip by clicking "Play Super Boost".',
+          'Then, select the horse you want to apply it to.',
+          "If your selection wins, you'll receive 10 times the standard points.",
+          'Once played, the chip is locked and cannot be changed.',
+        ],
+        used: usedChips.has('superBoost'),
+        buttonText: 'Play Super Boost'
+      },
+      {
+        id: 'doubleChance',
+        name: '🎯 Double Chance',
+        description: 'Improve your odds! The Double Chance chip counts a second-place finish as a win, giving you the full win points even if your horse finishes just behind the leader.',
+        howItWorks: [
+          'Click "Play Double Chance" to activate the chip.',
+          'Choose the race selection you want to apply it to.',
+          'Earn full win points if your selection finishes first or second.',
+          'Once applied, the chip cannot be moved to another selection.',
+        ],
+        used: usedChips.has('doubleChance'),
+        buttonText: 'Play Double Chance'
+      },
+      {
+        id: 'tripleThreat',
+        name: '⚖️ Triple Threat',
+        description: 'High risk, high reward! Use the Triple Threat chip to triple your points if your selection wins. However, if your horse loses, you\'ll get minus triple the potential points on offer!',
+        howItWorks: [
+          'Click "Play Triple Threat" to activate the chip.',
+          'Assign the chip to your chosen selection.',
+          'If your selection wins, you earn 3x the points. If it loses, you\'ll incur -3x the points.',
+          'The chip is locked to your selection once played.',
+          'Warning: Use this chip carefully—it can dramatically shift your position on the leaderboard!',
+        ],
+        used: usedChips.has('tripleThreat'),
+        buttonText: 'Play Triple Threat'
+      }
+    ];
+  });
   const [selections, setSelections] = useState<Selection[]>([]);
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
   const [leagueStandings, setLeagueStandings] = useState<LeagueStanding[]>([]);
@@ -392,12 +398,40 @@ export default function FantasyLeague() {
 
       console.log("DEBUG - Submitted selections by day:", submittedSelectionsByDay);
 
-      // Update chips state based on selections
-      const usedChips = new Set(selections.filter(s => s.chip).map(s => s.chip));
-      setChips(prevChips => prevChips.map(chip => ({
-        ...chip,
-        used: usedChips.has(chip.id as ChipType)
-      })));
+      // Update chips state based on both submitted selections and localStorage
+      const usedChips = new Set<ChipType>();
+      
+      // First check submitted selections
+      selections.forEach(s => {
+        if (s.chip && s.submitted_at) {
+          usedChips.add(s.chip);
+        }
+      });
+
+      // Then check localStorage for unsubmitted selections with chips
+      daysData.forEach(day => {
+        const storageKey = `unsubmitted_selections_${day.id}`;
+        const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        
+        Object.entries(storedSelections).forEach(([key, value]) => {
+          if (key.startsWith('chip_') && value) {
+            usedChips.add(value as ChipType);
+          }
+        });
+      });
+
+      // Update chips state and persist to localStorage
+      setChips(prevChips => {
+        const updatedChips = prevChips.map(chip => ({
+          ...chip,
+          used: usedChips.has(chip.id as ChipType)
+        }));
+
+        // Store the used chips in localStorage
+        localStorage.setItem('fantasy_used_chips', JSON.stringify(Array.from(usedChips)));
+        
+        return updatedChips;
+      });
 
       // Map races to their respective days
       const days = daysData.map(day => {
@@ -1116,9 +1150,19 @@ export default function FantasyLeague() {
       localStorage.setItem(storageKey, JSON.stringify(storedSelections));
 
       // Mark chip as used and reset active chip
-      setChips(prevChips => prevChips.map(c => 
-        c.id === currentChip ? { ...c, used: true } : c
-      ));
+      setChips(prevChips => {
+        const updatedChips = prevChips.map(c => 
+          c.id === currentChip ? { ...c, used: true } : c
+        );
+
+        // Update localStorage with used chips
+        const usedChips = updatedChips
+          .filter(c => c.used)
+          .map(c => c.id);
+        localStorage.setItem('fantasy_used_chips', JSON.stringify(usedChips));
+
+        return updatedChips;
+      });
       setActiveChip(null);
 
       toast({
