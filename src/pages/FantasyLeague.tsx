@@ -542,21 +542,51 @@ export default function FantasyLeague() {
       if (profilesError) throw profilesError;
       if (!profilesData) return;
       
+      // Fetch chip usage data for all users
+      const { data: chipData, error: chipError } = await supabase
+        .from('fantasy_selections')
+        .select(`
+          user_id,
+          chip
+        `)
+        .not('chip', 'is', null);
+        
+      if (chipError) throw chipError;
+      
+      // Create a map of user chips
+      const userChips = new Map<string, { superBoost: boolean, doubleChance: boolean, tripleThreat: boolean }>();
+      
+      chipData?.forEach(selection => {
+        if (!selection.chip) return;
+        
+        const userId = selection.user_id;
+        const chip = selection.chip as ChipType;
+        
+        if (!userChips.has(userId)) {
+          userChips.set(userId, {
+            superBoost: false,
+            doubleChance: false,
+            tripleThreat: false
+          });
+        }
+        
+        const userChip = userChips.get(userId);
+        if (userChip) {
+          userChip[chip] = true;
+        }
+      });
+      
       // Combine all data
       const standings: LeagueStanding[] = standingsData?.map((standing: any) => {
         const profile = profilesData.find(p => p.id === standing.user_id);
-        const chips = {
+        
+        // Get chip usage from the map, or use default empty values
+        const chips = userChips.get(standing.user_id) || {
           superBoost: false,
           doubleChance: false,
           tripleThreat: false,
         };
-        // Add chip usage
-        const userSelections = selections.filter(s => s.user_id === standing.user_id);
-        userSelections.forEach(selection => {
-          if (selection.chip) {
-            chips[selection.chip] = true;
-          }
-        });
+        
         return {
           user_id: standing.user_id,
           username: profile?.username || 'Unknown User',
@@ -1656,6 +1686,21 @@ export default function FantasyLeague() {
         return;
       }
 
+      // Reset points in the league standings table
+      const { error: resetPointsError } = await supabase
+        .from('fantasy_league_standings')
+        .update({ total_points: 0 })
+        .eq('user_id', user);
+
+      if (resetPointsError) {
+        console.error("Error resetting points:", resetPointsError);
+        toast({
+          title: "Warning",
+          description: "Selections were cleared but there was an error resetting points.",
+          variant: "destructive",
+        });
+      }
+
       // Clear local state - for dev, clear all selections
       setSelections([]);
 
@@ -1674,6 +1719,9 @@ export default function FantasyLeague() {
         const storageKey = `unsubmitted_selections_${day.id}`;
         localStorage.removeItem(storageKey);
       });
+
+      // Refresh the league standings to show the updated points
+      fetchLeagueStandings();
 
       toast({
         title: "Success",
@@ -1749,6 +1797,9 @@ export default function FantasyLeague() {
       
       // Refresh data
       await fetchFestivalDays();
+      
+      // Update the league standings to reflect the changes in points
+      await fetchLeagueStandings();
       
       toast({
         title: "Debug: Chips Cleared",
