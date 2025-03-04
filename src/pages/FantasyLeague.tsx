@@ -606,60 +606,11 @@ export default function FantasyLeague() {
         const storageKey = `unsubmitted_selections_${dayId}`;
         const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
         storedSelections[raceId] = horseId;
+        // Save chip data if it exists
+        if (existingChip) {
+          storedSelections[`chip_${raceId}`] = existingChip;
+        }
         localStorage.setItem(storageKey, JSON.stringify(storedSelections));
-      }
-
-      // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        console.error("No user ID found");
-        return;
-      }
-
-      // Find existing selection for this race
-      const existingSelection = selections.find(s => s.race_id === raceId);
-      
-      if (existingSelection) {
-        // Update existing selection
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .update({ 
-            horse_id: horseId,
-            day_id: selectedDay.id,
-            // Preserve any existing chip
-            ...(existingChip && { chip: existingChip })
-          })
-          .eq('id', existingSelection.id);
-
-        if (error) {
-          console.error("Error updating selection:", error);
-          toast({
-            title: "Error",
-            description: "There was an error saving your selection.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Create new selection
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .insert({
-            user_id: user.id,
-            horse_id: horseId,
-            race_id: raceId,
-            day_id: selectedDay.id,
-            // Include chip if one exists for this race
-            ...(existingChip && { chip: existingChip })
-          });
-
-        if (error) {
-          console.error("Error creating selection:", error);
-          toast({
-            title: "Error",
-            description: "There was an error saving your selection.",
-            variant: "destructive",
-          });
-        }
       }
     } catch (error) {
       console.error("Error in handleHorseSelect:", error);
@@ -1122,18 +1073,17 @@ export default function FantasyLeague() {
     try {
       console.log("Starting chip application process", { raceId, chip: currentChip });
       
-      // Get the current user
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        console.error("No user ID found");
-        return;
-      }
-
-      // Find existing selection for this race
-      const existingSelection = selections.find(s => s.race_id === raceId);
+      // Find the race
       const race = selectedDay.races.find(r => r.id === raceId);
+      if (!race) return;
+
+      // Check localStorage for selection
+      const storageKey = `unsubmitted_selections_${selectedDay.id}`;
+      const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const hasStoredSelection = storedSelections[raceId];
       
-      if (!race?.selected_horse_id && !existingSelection?.horse_id) {
+      // Check if we have a selection either in race state or localStorage
+      if (!race.selected_horse_id && !hasStoredSelection) {
         toast({
           title: "No Horse Selected",
           description: "Please select a horse before applying a chip.",
@@ -1145,46 +1095,7 @@ export default function FantasyLeague() {
         return;
       }
 
-      const horseId = race?.selected_horse_id || existingSelection?.horse_id;
-      
-      console.log("Database operation details:", { 
-        existingSelection, 
-        raceId, 
-        chip: currentChip,
-        dayId: selectedDay.id,
-        horseId
-      });
-
-      // Apply chip to the selection in the database
-      if (existingSelection) {
-        // Update existing selection with chip
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .update({ 
-            chip: currentChip,
-            submitted_at: new Date().toISOString() // Lock in the chip by setting submitted_at
-          })
-          .eq('id', existingSelection.id);
-
-        if (error) throw error;
-      } else {
-        // Create new selection with chip
-        const { error } = await supabase
-          .from('fantasy_selections')
-          .insert({
-            user_id: user.id,
-            horse_id: horseId,
-            race_id: raceId,
-            day_id: selectedDay.id,
-            chip: currentChip,
-            submitted_at: new Date().toISOString() // Lock in the chip by setting submitted_at
-          });
-
-        if (error) throw error;
-      }
-
-      // After successful database operation, update local state
-      // Apply chip to the selection
+      // Update selections in state
       const updatedSelections = selections.map(s => 
         s.race_id === raceId ? { ...s, chip: currentChip } : s
       );
@@ -1199,6 +1110,10 @@ export default function FantasyLeague() {
             : race
         )
       })));
+
+      // Save to localStorage
+      storedSelections[`chip_${raceId}`] = currentChip;
+      localStorage.setItem(storageKey, JSON.stringify(storedSelections));
 
       // Mark chip as used and reset active chip
       setChips(prevChips => prevChips.map(c => 
