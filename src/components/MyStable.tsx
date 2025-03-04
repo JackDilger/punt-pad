@@ -23,7 +23,7 @@ interface Horse {
   result?: 'win' | 'place' | 'loss';
   points: number;
   achievement?: 'best_performer' | 'consistent' | 'underdog';
-  odds?: number;
+  odds?: number | string;
   chip?: 'superBoost' | 'doubleChance' | 'tripleThreat';
 }
 
@@ -393,7 +393,12 @@ export default function MyStable() {
   };
 
   // Function to format odds in fractional format
-  const formatOdds = (odds: number): string => {
+  const formatOdds = (odds: number | string): string => {
+    // If odds is already a string in fractional format, return it
+    if (typeof odds === 'string') {
+      return odds;
+    }
+
     // Convert decimal odds to fractional format
     if (odds === 2.0) return "Evens"; // Special case for evens
     
@@ -565,111 +570,117 @@ export default function MyStable() {
           ) : filteredHorses && filteredHorses.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 pt-10 overflow-visible">
               {filteredHorses.map((horse, index) => (
-                <HoverCard key={horse.id} className="animate-fadeIn" style={{ animationDelay: `${index * 100}ms` }}>
-                  <HoverCardTrigger asChild>
-                    <div className="flex flex-col items-center">
-                      <div 
-                        className={`relative flex items-center justify-center w-24 h-24 mx-auto rounded-full bg-white shadow-md
-                          hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer
-                          ${horse.result === 'win' ? 'border-4 border-yellow-500' : ''}
-                          ${horse.result === 'loss' ? 'border-4 border-red-500' : ''}
-                          ${horse.result === 'place' ? 'border-4 border-gray-400' : ''}
-                          ${!horse.result ? 'border-4 border-transparent' : ''}
-                        `}
-                        onClick={() => handleHorseClick(horse)}
-                      >
-                        {/* Points circle */}
-                        <div className={`absolute -top-2 -right-2 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                          horse.points > 0 
-                            ? 'bg-green-600' 
-                            : horse.points < 0
-                              ? 'bg-red-600'
-                              : 'bg-gray-500'
-                        } ${horse.points > 0 ? 'animate-bounce-subtle' : ''}`}>
-                          {horse.points}
+                <div 
+                  key={horse.id} 
+                  className="animate-fadeIn relative z-0 hover:z-10 transition-[z-index]" 
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="flex flex-col items-center">
+                        <div 
+                          className={`relative flex items-center justify-center w-24 h-24 mx-auto rounded-full bg-white shadow-md
+                            hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer
+                            ${horse.result === 'win' ? 'border-4 border-yellow-500' : ''}
+                            ${horse.result === 'loss' ? 'border-4 border-red-500' : ''}
+                            ${horse.result === 'place' ? 'border-4 border-gray-400' : ''}
+                            ${!horse.result ? 'border-4 border-transparent' : ''}
+                          `}
+                          onClick={() => handleHorseClick(horse)}
+                        >
+                          {/* Points circle */}
+                          <div className={`absolute -top-2 -right-2 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                            horse.points > 0 
+                              ? 'bg-green-600' 
+                              : horse.points < 0
+                                ? 'bg-red-600'
+                                : 'bg-gray-500'
+                          } ${horse.points > 0 ? 'animate-bounce-subtle' : ''}`}>
+                            {horse.points}
+                          </div>
+                          
+                          {/* Result icon */}
+                          <div className="absolute -bottom-2 -right-2">
+                            {getResultIcon(horse.result)}
+                          </div>
+                          
+                          {/* Achievement badge */}
+                          {horse.achievement && (
+                            <div className="absolute -top-2 -left-2">
+                              {horse.achievement === 'best_performer' && (
+                                <div className="bg-yellow-500 text-white p-1 rounded-full">
+                                  <Trophy className="h-4 w-4" />
+                                </div>
+                              )}
+                              {horse.achievement === 'consistent' && (
+                                <div className="bg-gray-400 text-white p-1 rounded-full">
+                                  <TrendingUp className="h-4 w-4" />
+                                </div>
+                              )}
+                              {horse.achievement === 'underdog' && (
+                                <div className="bg-purple-500 text-white p-1 rounded-full">
+                                  <Award className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Horse icon */}
+                          <HorseIcon className="text-3xl text-gray-800" />
                         </div>
-                        
-                        {/* Result icon */}
-                        <div className="absolute -bottom-2 -right-2">
-                          {getResultIcon(horse.result)}
-                        </div>
-                        
-                        {/* Achievement badge */}
-                        {horse.achievement && (
-                          <div className="absolute -top-2 -left-2">
-                            {horse.achievement === 'best_performer' && (
-                              <div className="bg-yellow-500 text-white p-1 rounded-full">
-                                <Trophy className="h-4 w-4" />
-                              </div>
-                            )}
-                            {horse.achievement === 'consistent' && (
-                              <div className="bg-gray-400 text-white p-1 rounded-full">
-                                <TrendingUp className="h-4 w-4" />
-                              </div>
-                            )}
-                            {horse.achievement === 'underdog' && (
-                              <div className="bg-purple-500 text-white p-1 rounded-full">
-                                <Award className="h-4 w-4" />
+                        <div className="mt-3 text-center">
+                          <h3 className="font-semibold text-sm truncate max-w-[120px]">{horse.name}</h3>
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            {getResultIcon(horse.result)}
+                            <span className={`font-medium ${
+                              horse.result === 'win' ? 'text-yellow-500' : 
+                              horse.result === 'place' ? 'text-gray-400' : 
+                              horse.result === 'loss' ? 'text-red-500' : ''
+                            }`}>
+                              {horse.result === 'win' ? 'Win' : horse.result === 'place' ? 'Place' : horse.result === 'loss' ? 'Loss' : 'TBD'}
+                            </span>
+                            {horse.chip && (
+                              <div className="ml-1 flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
+                                {getChipIcon(horse.chip)}
+                                <span className="text-xs">{getChipName(horse.chip)}</span>
                               </div>
                             )}
                           </div>
-                        )}
-                        
-                        {/* Horse icon */}
-                        <HorseIcon className="text-3xl text-gray-800" />
+                        </div>
                       </div>
-                      <div className="mt-3 text-center">
-                        <h3 className="font-semibold text-sm truncate max-w-[120px]">{horse.name}</h3>
-                        <div className="flex items-center justify-center gap-1 mt-1">
-                          {getResultIcon(horse.result)}
-                          <span className={`font-medium ${
-                            horse.result === 'win' ? 'text-yellow-500' : 
-                            horse.result === 'place' ? 'text-gray-400' : 
-                            horse.result === 'loss' ? 'text-red-500' : ''
-                          }`}>
-                            {horse.result === 'win' ? 'Win' : horse.result === 'place' ? 'Place' : horse.result === 'loss' ? 'Loss' : 'TBD'}
-                          </span>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-64 p-0">
+                      <div className="p-4 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-bold">{horse.name}</h4>
                           {horse.chip && (
-                            <div className="ml-1 flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
+                            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
                               {getChipIcon(horse.chip)}
                               <span className="text-xs">{getChipName(horse.chip)}</span>
                             </div>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-64 p-0">
-                    <div className="p-4 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold">{horse.name}</h4>
-                        {horse.chip && (
-                          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
-                            {getChipIcon(horse.chip)}
-                            <span className="text-xs">{getChipName(horse.chip)}</span>
+                        <p className="text-sm text-gray-500">{horse.race_name}</p>
+                        <div className="flex justify-between">
+                          <p className="font-medium">Odds: {horse.odds ? formatOdds(horse.odds) : 'N/A'}</p>
+                          <p className="font-bold">{horse.points} pts</p>
+                        </div>
+                        {horse.achievement && (
+                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2">
+                              {getAchievementIcon(horse.achievement)}
+                              <span className="text-sm font-medium">
+                                {horse.achievement === 'best_performer' ? 'Best Performer' :
+                                 horse.achievement === 'consistent' ? 'Consistent Performer' :
+                                 'Underdog'}
+                              </span>
+                            </div>
                           </div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{horse.race_name}</p>
-                      <div className="flex justify-between">
-                        <p className="font-medium">Odds: {horse.odds ? formatOdds(horse.odds) : 'N/A'}</p>
-                        <p className="font-bold">{horse.points} pts</p>
-                      </div>
-                      {horse.achievement && (
-                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                          <div className="flex items-center gap-2">
-                            {getAchievementIcon(horse.achievement)}
-                            <span className="text-sm font-medium">
-                              {horse.achievement === 'best_performer' ? 'Best Performer' :
-                               horse.achievement === 'consistent' ? 'Consistent Performer' :
-                               'Underdog'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
+                    </HoverCardContent>
+                  </HoverCard>
+                </div>
               ))}
             </div>
           ) : (
