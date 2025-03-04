@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import PasswordUpdate from "@/components/PasswordUpdate";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isResetPassword, setIsResetPassword] = useState(false);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { toast } = useToast();
@@ -17,8 +19,36 @@ const Auth = () => {
   const location = useLocation();
   const from = location.state?.from?.pathname || "/dashboard";
 
-  if (session) {
+  // Check if the URL contains a password reset token
+  useEffect(() => {
+    const checkForPasswordResetToken = async () => {
+      // Check for recovery token in the URL
+      const hash = window.location.hash;
+      const query = new URLSearchParams(window.location.search);
+      
+      // Handle both hash-based and query-based tokens (Supabase can use either)
+      if (
+        (hash && (hash.includes('type=recovery') || hash.includes('#recovery'))) ||
+        (query.get('type') === 'recovery')
+      ) {
+        // If we have a session and a recovery token, we're in the password reset flow
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setIsPasswordReset(true);
+        }
+      }
+    };
+
+    checkForPasswordResetToken();
+  }, []);
+
+  if (session && !isPasswordReset) {
     return <Navigate to={from} replace />;
+  }
+
+  // If we have a password reset token, show the password update form
+  if (isPasswordReset) {
+    return <PasswordUpdate />;
   }
 
   const handleGoogleLogin = async () => {
@@ -45,7 +75,7 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       toast({
