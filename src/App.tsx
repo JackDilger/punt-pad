@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import MyBets from "./pages/MyBets";
 import FantasyLeague from "./pages/FantasyLeague";
+import PasswordUpdate from "./components/PasswordUpdate";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<PasswordUpdate />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
