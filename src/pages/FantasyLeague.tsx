@@ -1596,12 +1596,11 @@ export default function FantasyLeague() {
         return;
       }
 
-      // Clear selections from the database
+      // Clear selections from the database - for dev, delete all selections regardless of submission status
       const { error } = await supabase
         .from('fantasy_selections')
         .delete()
-        .eq('user_id', user)
-        .is('submitted_at', null); // Only delete unsubmitted selections
+        .eq('user_id', user);
 
       if (error) {
         console.error("Error clearing selections:", error);
@@ -1613,8 +1612,8 @@ export default function FantasyLeague() {
         return;
       }
 
-      // Clear local state
-      setSelections(prev => prev.filter(s => s.submitted_at !== null));
+      // Clear local state - for dev, clear all selections
+      setSelections([]);
 
       // Clear selected_horse_id from festivalDays state
       setFestivalDays(days => days.map(day => ({
@@ -1634,7 +1633,7 @@ export default function FantasyLeague() {
 
       toast({
         title: "Success",
-        description: "All unsubmitted selections have been cleared.",
+        description: "All selections have been cleared.",
       });
     } catch (error) {
       console.error("Error in clearAllSelections:", error);
