@@ -1690,7 +1690,7 @@ export default function FantasyLeague() {
     );
   };
 
-  const deleteAllSelections = async () => {
+  const clearAllSelections = async () => {
     try {
       // Get the current user
       const user = (await supabase.auth.getUser()).data.user?.id;
@@ -1698,40 +1698,28 @@ export default function FantasyLeague() {
         console.error("No user ID found");
         return;
       }
-      
-      // Delete all selections for this user
+
+      // Clear selections from the database
       const { error } = await supabase
         .from('fantasy_selections')
         .delete()
-        .eq('user_id', user);
-        
+        .eq('user_id', user)
+        .is('submitted_at', null); // Only delete unsubmitted selections
+
       if (error) {
-        console.error("Error deleting selections:", error);
+        console.error("Error clearing selections:", error);
         toast({
           title: "Error",
-          description: "There was an error deleting selections.",
+          description: "There was an error clearing your selections.",
           variant: "destructive",
         });
         return;
       }
-      
-      // Reset league standings points to 0 for this user
-      const { error: standingsError } = await supabase
-        .from('fantasy_league_standings')
-        .update({ total_points: 0, updated_at: new Date().toISOString() })
-        .eq('user_id', user);
-        
-      if (standingsError) {
-        console.error("Error resetting standings:", standingsError);
-        // Continue anyway as the selections have been deleted
-      } else {
-        console.log("League standings reset to 0 points");
-      }
-      
+
       // Clear local state
-      setSelections([]);
-      
-      // Clear UI state
+      setSelections(prev => prev.filter(s => s.submitted_at !== null));
+
+      // Clear selected_horse_id from festivalDays state
       setFestivalDays(days => days.map(day => ({
         ...day,
         races: day.races.map(race => ({
@@ -1741,22 +1729,29 @@ export default function FantasyLeague() {
         }))
       })));
 
-      // Reset chip usage state
-      setChips(prevChips => prevChips.map(c => ({
-        ...c,
-        used: false
-      })));
+      // Clear localStorage for all days
+      festivalDays.forEach(day => {
+        const storageKey = `unsubmitted_selections_${day.id}`;
+        localStorage.removeItem(storageKey);
+      });
 
       toast({
-        title: "Debug: Selections Deleted",
-        description: "All selections have been deleted for testing purposes.",
+        title: "Success",
+        description: "All unsubmitted selections have been cleared.",
       });
-      
-      // Refresh data
-      await fetchFestivalDays();
-      
-      // Refresh league standings
-      fetchLeagueStandings();
+    } catch (error) {
+      console.error("Error in clearAllSelections:", error);
+      toast({
+        title: "Error",
+        description: "There was an error clearing your selections.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteAllSelections = async () => {
+    try {
+      await clearAllSelections();
     } catch (error) {
       console.error("Error in deleteAllSelections:", error);
     }
