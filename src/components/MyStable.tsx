@@ -572,7 +572,7 @@ export default function MyStable() {
               {filteredHorses.map((horse, index) => (
                 <div 
                   key={horse.id} 
-                  className="animate-fadeIn relative z-0 hover:z-10 transition-[z-index]" 
+                  className="animate-fadeIn relative z-0 hover:z-10" 
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <HoverCard>
