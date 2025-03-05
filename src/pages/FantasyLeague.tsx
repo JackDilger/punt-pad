@@ -1344,11 +1344,11 @@ export default function FantasyLeague() {
     const { canSubmit, isBeforeCutoff } = getSubmissionStatus(day);
     
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">Selection Progress</span>
+      <div className="space-y-8">
+        <div className="flex items-center justify-between bg-muted/10 p-4 rounded-lg">
+          <div className="space-y-2 flex-1 max-w-md">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium">Selection Progress</span>
               <span className="text-sm font-medium">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} />
@@ -1356,38 +1356,47 @@ export default function FantasyLeague() {
           
           <Button
             variant="default"
-            className="bg-primary hover:bg-primary/90 text-white"
+            className="bg-primary hover:bg-primary/90 text-white ml-6"
             onClick={openSubmissionDialog}
             disabled={day.selections_submitted || !isBeforeCutoff}
           >
             {day.selections_submitted 
-              ? "Selections Submitted" 
+              ? <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Selections Submitted</span> 
               : !isBeforeCutoff 
-                ? "Cutoff Time Passed" 
-                : "Submit Selections"}
+                ? <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Cutoff Time Passed</span>
+                : <span className="flex items-center gap-1.5"><Check className="h-4 w-4" /> Submit Selections</span>}
           </Button>
         </div>
         
         {!isBeforeCutoff && !day.selections_submitted && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="text-red-700">
               The cutoff time for this day has passed. You can no longer make or change selections.
             </AlertDescription>
           </Alert>
         )}
         
-        <div className="grid grid-cols-3 gap-4">
+        {day.selections_submitted && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-700">
+              Your selections for {day.name} have been submitted and cannot be changed.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <div className="grid grid-cols-3 gap-6">
           {chips.map((chip) => (
             <TooltipProvider key={chip.id}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Card
                     className={cn(
-                      "cursor-pointer transition-all relative",
-                      "hover:bg-accent hover:border-accent-foreground",
-                      activeChip === chip.id && "bg-accent border-accent-foreground",
-                      chip.used && "opacity-50 cursor-not-allowed hover:border-input hover:bg-transparent"
+                      "cursor-pointer transition-all relative overflow-hidden",
+                      "hover:bg-accent hover:border-accent-foreground hover:shadow-md",
+                      activeChip === chip.id && "bg-accent border-accent-foreground shadow-md",
+                      chip.used && "opacity-60 cursor-not-allowed hover:border-input hover:bg-transparent"
                     )}
                     onClick={() => handleChipClick(chip.id)}
                   >
@@ -1404,32 +1413,29 @@ export default function FantasyLeague() {
                         <X className="h-4 w-4" />
                       </Button>
                     )}
-                    <CardContent className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                    <CardContent className="flex flex-col items-center justify-center p-6 text-center space-y-2">
                       <p className="font-medium text-lg">{chip.name}</p>
                       {activeChip === chip.id && (
-                        <p className="text-sm text-muted-foreground">Click a selection to apply</p>
+                        <p className="text-sm text-muted-foreground mt-1 bg-background/80 px-2 py-1 rounded-md">Click a selection to apply</p>
                       )}
                     </CardContent>
                   </Card>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px]">
-                  <p>{chip.description}</p>
+                <TooltipContent side="bottom" className="max-w-[250px] p-4">
+                  <p className="font-medium mb-1">{chip.name}</p>
+                  <p className="text-sm">{chip.description}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ))}
         </div>
 
-        {day.selections_submitted ? (
-          <div className="bg-green-50 p-4 rounded-md mb-4">
-            <p className="text-green-700">Your selections for {day.name} have been submitted and cannot be changed.</p>
-          </div>
-        ) : null}
-
         {loading ? (
-          <p>Loading races...</p>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
         ) : day.races.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {day.races.map((race) => {
               const selectedHorse = race.horses.find((h) => h.id === race.selected_horse_id);
 
@@ -1437,8 +1443,8 @@ export default function FantasyLeague() {
                 <Card 
                   key={race.id} 
                   className={cn(
-                    "relative",
-                    activeChip && "cursor-pointer hover:bg-accent/80 hover:border-accent-foreground transition-all",
+                    "relative border-muted/60 shadow-sm transition-all",
+                    activeChip && "cursor-pointer hover:bg-accent/80 hover:border-accent-foreground hover:shadow-md",
                     race.chip && "border-primary/50"
                   )}
                   onClick={() => {
@@ -1450,11 +1456,14 @@ export default function FantasyLeague() {
                     }
                   }}
                 >
-                  <CardHeader className="pb-2">
+                  {race.chip && (
+                    <div className="absolute top-0 right-0 w-0 h-0 border-t-[40px] border-t-primary border-l-[40px] border-l-transparent"></div>
+                  )}
+                  <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{race.name}</h3>
+                          <h3 className="font-medium text-lg">{race.name}</h3>
                           {isAdmin && (
                             <Button
                               variant="ghost"
@@ -1466,8 +1475,8 @@ export default function FantasyLeague() {
                             </Button>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span>{format(new Date(race.race_time), 'HH:mm')}</span>
+                        <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                          <span className="font-medium">{format(new Date(race.race_time), 'HH:mm')}</span>
                           {race.distance && (
                             <>
                               <span className="mx-1">·</span>
@@ -1478,12 +1487,12 @@ export default function FantasyLeague() {
                           <span>{race.number_of_places} places</span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {race.chip && (
-                          <div className="flex-shrink-0">
-                            {race.chip === 'superBoost' && <span className="text-sm">🚀</span>}
-                            {race.chip === 'doubleChance' && <span className="text-sm">🎯</span>}
-                            {race.chip === 'tripleThreat' && <span className="text-sm">⚖️</span>}
+                          <div className="flex-shrink-0 bg-primary/10 rounded-full p-1.5 mr-1">
+                            {race.chip === 'superBoost' && <span className="text-lg">🚀</span>}
+                            {race.chip === 'doubleChance' && <span className="text-lg">🎯</span>}
+                            {race.chip === 'tripleThreat' && <span className="text-lg">⚖️</span>}
                           </div>
                         )}
                         <Select
@@ -1493,8 +1502,8 @@ export default function FantasyLeague() {
                         >
                           <SelectTrigger 
                             className={cn(
-                              "w-[250px]",
-                              race.selected_horse_id && "border-green-500"
+                              "w-[280px] transition-colors",
+                              race.selected_horse_id && "border-green-500 bg-green-50"
                             )}
                           >
                             <SelectValue placeholder="Select a horse">
@@ -1648,8 +1657,8 @@ export default function FantasyLeague() {
 
           </div>
         ) : (
-          <div className="bg-muted/50 rounded-lg p-8 text-center">
-            <p>No races available for {day.name}</p>
+          <div className="bg-muted/20 rounded-lg p-8 text-center">
+            <p className="text-lg font-medium text-muted-foreground">No races available for {day.name}</p>
             <p className="text-sm text-muted-foreground mt-2">
               {day.selections_submitted 
                 ? "Selections have already been submitted for this day"
@@ -1985,14 +1994,15 @@ export default function FantasyLeague() {
 
   return (
     <AuthLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Cheltenham Fantasy League 2025</h1>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between border-b pb-4">
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Cheltenham Fantasy League 2025</h1>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setRulesOpen(true)}
+              className="font-medium"
             >
               Rules & Points
             </Button>
@@ -2044,30 +2054,31 @@ export default function FantasyLeague() {
           defaultValue="selections" 
           value={activeTab}
           onValueChange={(value) => setActiveTab(value)}
+          className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/30 p-1 rounded-lg">
             <TabsTrigger 
               value="selections"
-              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
             >
               Selections
             </TabsTrigger>
             <TabsTrigger 
               value="my-stable"
-              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
             >
               My Stable
             </TabsTrigger>
             <TabsTrigger 
               value="league-table"
-              className="data-[state=active]:bg-[#02a64f] data-[state=active]:text-white font-medium"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
             >
               League Table
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="selections">
-            <Card className="overflow-hidden min-h-[500px]">
+            <Card className="overflow-hidden min-h-[500px] border-muted/60 shadow-sm">
               <CardContent className="p-0">
                 {loading ? (
                   <div className="flex items-center justify-center h-[500px]">
@@ -2075,24 +2086,24 @@ export default function FantasyLeague() {
                   </div>
                 ) : (
                   <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
-                    <TabsList className="w-full">
+                    <TabsList className="w-full bg-muted/20 p-0 rounded-none border-b">
                       {festivalDays.map((day) => (
                         <TabsTrigger
                           key={day.id}
                           value={day.id}
                           onClick={() => setSelectedDay(day)}
-                          className="flex-1 rounded-none data-[state=active]:bg-background flex flex-col items-center space-y-1 py-2"
+                          className="flex-1 rounded-none data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary flex flex-col items-center space-y-1.5 py-3 px-4 transition-all"
                           disabled={loading}
                         >
-                          <div className="flex items-center gap-1">
-                            <span className={day.id === selectedDayTab ? "text-primary font-medium" : ""}>
+                          <div className="flex items-center gap-1.5">
+                            <span className={day.id === selectedDayTab ? "text-primary font-medium" : "font-medium"}>
                               {day.name}
                             </span>
                             {!isBeforeCutoffTime(day) && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-full">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-red-50 text-red-700 rounded-full">
                                       <Lock className="h-3 w-3" />
                                       Locked
                                     </span>
@@ -2118,7 +2129,7 @@ export default function FantasyLeague() {
                     </TabsList>
 
                     {festivalDays.map((day) => (
-                      <TabsContent key={day.id} value={day.id} className="p-6 pt-4 bg-white">
+                      <TabsContent key={day.id} value={day.id} className="p-6">
                         {renderDayContent(day)}
                       </TabsContent>
                     ))}
@@ -2129,7 +2140,7 @@ export default function FantasyLeague() {
           </TabsContent>
 
           <TabsContent value="my-stable" className="space-y-4">
-            <Card>
+            <Card className="border-muted/60 shadow-sm">
               <CardContent className="pt-6">
                 <MyStable />
               </CardContent>
@@ -2137,9 +2148,9 @@ export default function FantasyLeague() {
           </TabsContent>
 
           <TabsContent value="league-table" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">League Table</h2>
+            <Card className="border-muted/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <h2 className="text-xl font-semibold text-primary">League Table</h2>
                 <p className="text-sm text-muted-foreground">See how you rank against other players</p>
               </CardHeader>
               <CardContent>
@@ -2168,22 +2179,22 @@ export default function FantasyLeague() {
                         <p className="text-sm">Standings will appear once races are completed and points are awarded.</p>
                       </div>
                     ) : (
-                      <div className="rounded-md border">
+                      <div className="rounded-lg border overflow-hidden">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-muted/50 border-b">
-                              <th className="text-left p-2 pl-4 font-medium">Rank</th>
-                              <th className="text-left p-2 font-medium">Team</th>
-                              <th className="text-right p-2 font-medium">Wins</th>
-                              <th className="text-right p-2 font-medium">Places</th>
-                              <th className="text-right p-2 pr-4 font-medium">Points</th>
-                              <th className="text-right p-2 pr-4 font-medium">Chips</th>
+                            <tr className="bg-muted/30 border-b">
+                              <th className="text-left p-3 pl-4 font-medium">Rank</th>
+                              <th className="text-left p-3 font-medium">Team</th>
+                              <th className="text-right p-3 font-medium">Wins</th>
+                              <th className="text-right p-3 font-medium">Places</th>
+                              <th className="text-right p-3 pr-4 font-medium">Points</th>
+                              <th className="text-right p-3 pr-4 font-medium">Chips</th>
                             </tr>
                           </thead>
                           <tbody>
                             {leagueStandings.map((standing, index) => (
-                              <tr key={standing.user_id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
-                                <td className="p-2 pl-4">
+                              <tr key={standing.user_id} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}>
+                                <td className="p-3 pl-4">
                                   {index === 0 ? (
                                     <span className="inline-flex items-center justify-center bg-yellow-400 text-yellow-950 w-6 h-6 rounded-full font-bold">1</span>
                                   ) : index === 1 ? (
@@ -2194,17 +2205,17 @@ export default function FantasyLeague() {
                                     <span className="inline-flex items-center justify-center text-muted-foreground w-6 h-6">{index + 1}</span>
                                   )}
                                 </td>
-                                <td className="p-2">
+                                <td className="p-3">
                                   <span>{standing.team_name || 'Unnamed Team'}</span>
                                 </td>
-                                <td className="p-2 text-right">
+                                <td className="p-3 text-right">
                                   <span>{standing.wins}</span>
                                 </td>
-                                <td className="p-2 text-right">
+                                <td className="p-3 text-right">
                                   <span>{standing.places}</span>
                                 </td>
-                                <td className="p-2 pr-4 text-right font-medium">{standing.total_points}</td>
-                                <td className="p-2 pr-4 flex justify-end gap-1.5">
+                                <td className="p-3 pr-4 text-right font-medium">{standing.total_points}</td>
+                                <td className="p-3 pr-4 flex justify-end gap-1.5">
                                   {standing.chips.superBoost && (
                                     <span className="cursor-help" title="Super Boost Used">🚀</span>
                                   )}

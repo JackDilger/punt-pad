@@ -16,7 +16,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8 pt-24">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pt-24">
         {children}
       </main>
     </div>
