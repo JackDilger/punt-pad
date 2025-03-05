@@ -64,7 +64,7 @@ interface BetWithSelections {
 export default function MyBets() {
   const { session } = useAuth();
   const [bets, setBets] = useState<BetWithSelections[]>([]);
-  const [sortBy, setSortBy] = useState<"date" | "status" | "profit">("date");
+  const [sortBy, setSortBy] = useState<"date" | "profit">("date");
   const [filterBetType, setFilterBetType] = useState<"all" | "Single" | "Accumulator">("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void">("all");
   const [editingBetId, setEditingBetId] = useState<string | null>(null);
@@ -397,9 +397,6 @@ export default function MyBets() {
       if (sortBy === "date") {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
-      if (sortBy === "status") {
-        return a.status.localeCompare(b.status);
-      }
       if (sortBy === "profit") {
         return calculateProfitLoss(b) - calculateProfitLoss(a);
       }
@@ -418,7 +415,6 @@ export default function MyBets() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
                 <SelectItem value="profit">Profit/Loss</SelectItem>
               </SelectContent>
             </Select>
