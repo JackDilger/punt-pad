@@ -1557,6 +1557,14 @@ export default function FantasyLeague() {
                             <Plus className="h-4 w-4 mr-2" />
                             Add Horse
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleMarkAllAsLost}
+                            className="text-sm"
+                          >
+                            Mark all as lost
+                          </Button>
                         </div>
                         <div className="space-y-2">
                           {editingValues.horses.map((horse, index) => (
@@ -1668,6 +1676,18 @@ export default function FantasyLeague() {
         )}
       </div>
     );
+  };
+
+  const handleMarkAllAsLost = () => {
+    if (!editingValues) return;
+    
+    setEditingValues({
+      ...editingValues,
+      horses: editingValues.horses.map(horse => ({
+        ...horse,
+        result: 'loss'
+      }))
+    });
   };
 
   const clearAllSelections = async () => {
