@@ -27,6 +27,7 @@ export const BetEntry = () => {
   const [isFreeBet, setIsFreeBet] = useState(false);
   const [usesFractionalOdds, setUsesFractionalOdds] = useState(true);
   const [stake, setStake] = useState<string>("");
+  const [combinedStake, setCombinedStake] = useState<string>("");
   const { toast } = useToast();
 
   const handleOddsChange = (index: number, value: string) => {
@@ -65,8 +66,10 @@ export const BetEntry = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const currentStake = betType === "Accumulator" ? combinedStake : stake;
+
     // Validate form
-    if (!stake || parseFloat(stake) <= 0) {
+    if (!currentStake || parseFloat(currentStake) <= 0) {
       toast({
         title: "Error",
         description: "Please enter a valid stake amount",
@@ -91,7 +94,7 @@ export const BetEntry = () => {
       // Create bet object using snake_case for database fields
       const bet = {
         bet_type: betType,
-        stake: parseFloat(stake),
+        stake: parseFloat(currentStake),
         total_odds: totalOdds,
         is_each_way: isEachWay,
         place_terms: isEachWay ? placeTerms : 0.25,
@@ -115,6 +118,7 @@ export const BetEntry = () => {
       setPlaceTerms(0.25);
       setIsFreeBet(false);
       setStake("");
+      setCombinedStake("");
 
       toast({
         title: "Success",
@@ -216,28 +220,30 @@ export const BetEntry = () => {
                       onChange={(e) => handleOddsChange(index, e.target.value)}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="stake" className="text-sm">Stake</Label>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Label htmlFor="free-bet">Free Bet</Label>
-                        <Checkbox
-                          id="free-bet"
-                          checked={isFreeBet}
-                          onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
-                          className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
-                        />
+                  {betType === "Single" && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="stake" className="text-sm">Stake</Label>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Label htmlFor="free-bet">Free Bet</Label>
+                          <Checkbox
+                            id="free-bet"
+                            checked={isFreeBet}
+                            onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
+                            className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
+                          />
+                        </div>
                       </div>
+                      <Input 
+                        id="stake" 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="10.00"
+                        value={stake}
+                        onChange={(e) => setStake(e.target.value)}
+                      />
                     </div>
-                    <Input 
-                      id="stake" 
-                      type="number" 
-                      step="0.01" 
-                      placeholder="10.00"
-                      value={stake}
-                      onChange={(e) => setStake(e.target.value)}
-                    />
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -254,6 +260,38 @@ export const BetEntry = () => {
               </Button>
             )}
           </div>
+
+          {betType === "Accumulator" && (
+            <div className="bg-muted rounded-lg p-4">
+              <div className="flex flex-col space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="combined-stake" className="text-sm">Stake</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="free-bet-combined" className="text-sm">Free Bet</Label>
+                    <Checkbox
+                      id="free-bet-combined"
+                      checked={isFreeBet}
+                      onCheckedChange={(checked) => setIsFreeBet(checked as boolean)}
+                      className="data-[state=checked]:bg-bet-control data-[state=checked]:border-bet-control"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Input 
+                    id="combined-stake" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="10.00"
+                    value={combinedStake}
+                    onChange={(e) => setCombinedStake(e.target.value)}
+                  />
+                  <div className="flex justify-end mt-2">
+                    <span className="text-sm font-medium">Total Odds: <span className="font-bold">{calculateTotalOdds()}</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -321,12 +359,6 @@ export const BetEntry = () => {
               Add Bet
             </Button>
           </div>
-
-          {betType === "Accumulator" && selections.length > 1 && (
-            <div className="text-sm font-medium">
-              Total Odds: <span className="font-bold">{calculateTotalOdds()}</span>
-            </div>
-          )}
         </form>
       </CardContent>
     </Card>
