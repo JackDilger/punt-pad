@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./ui/use-toast";
 import { useEffect, useRef, useState } from "react";
+import { Menu, X } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 
 export const Header = () => {
   const { session } = useAuth();
@@ -15,6 +17,7 @@ export const Header = () => {
     width: 0, 
     opacity: 0 
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navItemsRef = useRef<Map<string, HTMLElement>>(new Map());
   const loginRef = useRef<HTMLAnchorElement>(null);
@@ -111,7 +114,7 @@ export const Header = () => {
             <span className="text-2xl font-heading font-bold text-gray-900">Puntpad</span>
           </Link>
 
-          {/* Navigation Links with Hover Effect */}
+          {/* Navigation Links with Hover Effect - Desktop */}
           <div 
             ref={navContainerRef}
             className="hidden md:flex items-center relative"
@@ -148,7 +151,7 @@ export const Header = () => {
             </nav>
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons - Desktop */}
           <div 
             className="hidden md:flex items-center space-x-4"
             onMouseLeave={handleMouseLeave}
@@ -188,6 +191,82 @@ export const Header = () => {
                 </Link>
               </>
             )}
+          </div>
+
+          {/* Mobile Menu */}
+          <div className="md:hidden">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[80%] sm:w-[350px] pt-12">
+                <div className="flex flex-col h-full">
+                  <div className="flex-1">
+                    <nav className="flex flex-col space-y-4 mt-8">
+                      {navItems.map((item) => (
+                        <Link 
+                          key={item.id}
+                          to={item.to}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="px-4 py-3 text-lg font-medium text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </nav>
+                  </div>
+                  
+                  <div className="border-t border-gray-200 pt-6 pb-8">
+                    {session ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center px-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium mr-3">
+                            {session.user.email?.charAt(0).toUpperCase() || "U"}
+                          </div>
+                          <div className="text-sm">
+                            <div className="font-medium">{session.user.email}</div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            handleLogout();
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full justify-start px-4 py-3 text-gray-600 text-base font-medium"
+                        >
+                          Sign Out
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4 px-4">
+                        <Link 
+                          to="/auth" 
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="block w-full text-center py-3 text-gray-600 text-base font-medium border border-gray-200 rounded-lg"
+                        >
+                          Log In
+                        </Link>
+                        <Link 
+                          to="/auth"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          <Button 
+                            variant="default" 
+                            className="w-full rounded-lg py-3 text-base font-medium text-white bg-primary hover:bg-primary-hover"
+                          >
+                            Start Tracking
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
