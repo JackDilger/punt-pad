@@ -63,6 +63,23 @@ export const BetEntry = () => {
     return usesFractionalOdds ? decimalToFractional(total) : total.toFixed(2);
   };
 
+  const calculateReturns = (): { totalReturn: number; totalProfit: number } => {
+    const currentStake = betType === "Accumulator" ? combinedStake : stake;
+    const stakeAmount = parseFloat(currentStake) || 0;
+    
+    let odds = calculateTotalOdds();
+    const decimalOdds = usesFractionalOdds ? fractionalToDecimal(odds) : parseFloat(odds);
+    
+    // For free bets, we don't get the stake back in the return
+    const totalReturn = isFreeBet ? stakeAmount * (decimalOdds - 1) : stakeAmount * decimalOdds;
+    const totalProfit = isFreeBet ? totalReturn : totalReturn - stakeAmount;
+
+    return {
+      totalReturn: isNaN(totalReturn) ? 0 : totalReturn,
+      totalProfit: isNaN(totalProfit) ? 0 : totalProfit
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -358,6 +375,17 @@ export const BetEntry = () => {
             >
               Add Bet
             </Button>
+          </div>
+
+          <div className="mt-4 space-y-2 border-t pt-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Total Return:</span>
+              <span className="text-sm font-bold">£{calculateReturns().totalReturn.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Total Profit:</span>
+              <span className="text-sm font-bold text-green-600">£{calculateReturns().totalProfit.toFixed(2)}</span>
+            </div>
           </div>
         </form>
       </CardContent>
