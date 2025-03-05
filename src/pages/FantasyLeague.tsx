@@ -2056,22 +2056,22 @@ export default function FantasyLeague() {
           onValueChange={(value) => setActiveTab(value)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/30 p-1 rounded-lg">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/30 p-0.5 rounded-lg">
             <TabsTrigger 
               value="selections"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
             >
               Selections
             </TabsTrigger>
             <TabsTrigger 
               value="my-stable"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
             >
               My Stable
             </TabsTrigger>
             <TabsTrigger 
               value="league-table"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-2.5"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
             >
               League Table
             </TabsTrigger>
@@ -2092,7 +2092,7 @@ export default function FantasyLeague() {
                           key={day.id}
                           value={day.id}
                           onClick={() => setSelectedDay(day)}
-                          className="flex-1 rounded-none data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary flex flex-col items-center space-y-1.5 py-3 px-4 transition-all"
+                          className="flex-1 rounded-none data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary flex flex-col items-center space-y-1 py-2 px-3 transition-all"
                           disabled={loading}
                         >
                           <div className="flex items-center gap-1.5">
