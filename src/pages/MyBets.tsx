@@ -128,9 +128,31 @@ export default function MyBets() {
       return bet.is_free_bet ? 0 : -effectiveStake;
     }
 
-    const decimalOdds = typeof bet.total_odds === 'string' ? 
-      fractionalToDecimal(bet.total_odds) : 
-      parseFloat(bet.total_odds);
+    // Safely convert odds to decimal format
+    let decimalOdds: number;
+    try {
+      if (typeof bet.total_odds === 'string') {
+        // Check if it's already in decimal format
+        if (!isNaN(parseFloat(bet.total_odds)) && !bet.total_odds.includes('/')) {
+          decimalOdds = parseFloat(bet.total_odds);
+        } else {
+          // It's in fractional format (e.g., "5/1")
+          decimalOdds = fractionalToDecimal(bet.total_odds);
+        }
+      } else {
+        decimalOdds = parseFloat(String(bet.total_odds));
+      }
+      
+      // Ensure we have a valid number
+      if (isNaN(decimalOdds) || !isFinite(decimalOdds)) {
+        console.error('Invalid odds format:', bet.total_odds);
+        decimalOdds = 0;
+      }
+    } catch (error) {
+      console.error('Error converting odds:', error, bet.total_odds);
+      decimalOdds = 0;
+    }
+    
     console.log('Decimal odds:', decimalOdds);
 
     if (bet.is_free_bet) {
@@ -178,6 +200,7 @@ export default function MyBets() {
           is_each_way: editingBet.is_each_way,
           placeterms: editingBet.place_terms,
           is_free_bet: editingBet.is_free_bet,
+          status: editingBet.status, // Ensure status is updated
           potential_return: editingBet.potential_return
         } satisfies Database['public']['Tables']['bets']['Update'])
         .eq('id', editingBet.id);
@@ -217,6 +240,7 @@ export default function MyBets() {
         if (bet.id === editingBet.id) {
           return {
             ...bet,
+            status: editingBet.status, // Ensure status is updated
             selections: updatedSelections.map(selection => ({
               ...selection,
               status: selection.status
@@ -260,20 +284,67 @@ export default function MyBets() {
         throw updateError;
       }
 
-      // Update local state
+      // Create a new selections array with the updated status
+      const updatedSelections = editingBet.selections.map(selection => 
+        selection.id === selectionId 
+          ? { ...selection, status: newStatus }
+          : selection
+      );
+
+      // Determine the bet status based on selection statuses
+      let betStatus: BetWithSelections['status'] = newStatus;
+      
+      // For accumulators, determine status based on all selections
+      if (editingBet.bet_type === 'Accumulator') {
+        const hasLost = updatedSelections.some(s => s.status === 'Lost');
+        const allWon = updatedSelections.every(s => s.status === 'Won');
+        const allVoid = updatedSelections.every(s => s.status === 'Void');
+        
+        if (hasLost) {
+          betStatus = 'Lost';
+        } else if (allWon) {
+          betStatus = 'Won';
+        } else if (allVoid) {
+          betStatus = 'Void';
+        } else {
+          betStatus = 'Pending';
+        }
+      }
+      // For singles, the bet status matches the selection status (which is already set to newStatus)
+
+      // Update the parent bet status
+      const { error: betUpdateError } = await supabase
+        .from('bets')
+        .update({
+          status: betStatus
+        } satisfies Database['public']['Tables']['bets']['Update'])
+        .eq('id', betId);
+
+      if (betUpdateError) {
+        console.error('Error updating bet status:', betUpdateError);
+        throw betUpdateError;
+      }
+
+      // Update local state for both the selection and the bet
       setBets(prevBets => prevBets.map(bet => {
         if (bet.id === editingBet.id) {
           return {
             ...bet,
-            selections: bet.selections.map(selection => 
-              selection.id === selectionId 
-                ? { ...selection, status: newStatus }
-                : selection
-            )
+            status: betStatus, // Update the bet status
+            selections: updatedSelections
           } as BetWithSelections;
         }
         return bet;
       }));
+
+      // Also update the editingBet state to reflect the changes
+      if (editingBet) {
+        setEditingBet({
+          ...editingBet,
+          status: betStatus,
+          selections: updatedSelections
+        });
+      }
     } catch (error) {
       console.error("Error updating bet status:", error);
       toast({
@@ -606,7 +677,7 @@ export default function MyBets() {
                           }
                         >
                           {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : ""}£
-                          {Math.abs(calculateProfitLoss(bet)).toFixed(2)}
+                          {isNaN(calculateProfitLoss(bet)) ? "0.00" : Math.abs(calculateProfitLoss(bet)).toFixed(2)}
                         </span>
                       ) : (
                         <span
@@ -619,7 +690,7 @@ export default function MyBets() {
                           }
                         >
                           {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : ""}£
-                          {Math.abs(calculateProfitLoss(editingBet)).toFixed(2)}
+                          {editingBet ? (isNaN(calculateProfitLoss(editingBet)) ? "0.00" : Math.abs(calculateProfitLoss(editingBet)).toFixed(2)) : "0.00"}
                         </span>
                       )}
                     </TableCell>
