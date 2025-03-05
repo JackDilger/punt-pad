@@ -2085,7 +2085,9 @@ export default function FantasyLeague() {
                           disabled={loading}
                         >
                           <div className="flex items-center gap-1">
-                            <span>{day.name}</span>
+                            <span className={day.id === selectedDayTab ? "text-primary font-medium" : ""}>
+                              {day.name}
+                            </span>
                             {!isBeforeCutoffTime(day) && (
                               <TooltipProvider>
                                 <Tooltip>
