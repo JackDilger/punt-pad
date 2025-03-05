@@ -112,7 +112,12 @@ interface EditingValues {
 
 const toFractionalOdds = (decimal: number | null): string => {
   if (!decimal) return '';
-  const odds: Record<number, string> = {
+  
+  // Handle special cases first
+  const specialOdds: Record<number, string> = {
+    1.5: '1/2',
+    1.67: '2/3',
+    1.75: '3/4',
     2: '1/1',
     2.5: '6/4',
     3: '2/1',
@@ -127,14 +132,22 @@ const toFractionalOdds = (decimal: number | null): string => {
     8: '7/1',
     9: '8/1',
     10: '9/1',
-    11: '10/1',
-    1.5: '1/2',
-    1.67: '2/3',
-    1.75: '3/4'
+    11: '10/1'
   };
-  
-  // Find the closest match
-  const closest = Object.entries(odds).reduce((prev, [key, value]) => {
+
+  // Check if we have an exact match in our special cases
+  if (specialOdds[decimal]) {
+    return specialOdds[decimal];
+  }
+
+  // For odds above our special cases, convert directly to X/1 format
+  if (decimal > 11) {
+    const numerator = Math.round(decimal - 1);
+    return `${numerator}/1`;
+  }
+
+  // For other odds, find the closest match in our special cases
+  const closest = Object.entries(specialOdds).reduce((prev, [key, value]) => {
     const prevDiff = Math.abs(parseFloat(prev[0]) - decimal);
     const currDiff = Math.abs(parseFloat(key) - decimal);
     return currDiff < prevDiff ? [key, value] : prev;
@@ -2325,7 +2338,7 @@ export default function FantasyLeague() {
 
             <div>
               <h3 className="font-medium mb-2">Additional Rules</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
                 <li>Selections must be made before each day's cutoff time</li>
                 <li>Once submitted, selections cannot be changed</li>
                 <li>Points are awarded based on official race results</li>
