@@ -1,3 +1,4 @@
+// MyStable component - v1.0.1 - Force rebuild
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -597,11 +598,6 @@ export default function MyStable() {
                                 : 'bg-gray-500'
                           } ${horse.points > 0 ? 'animate-bounce-subtle' : ''}`}>
                             {horse.points}
-                          </div>
-                          
-                          {/* Result icon */}
-                          <div className="absolute -bottom-2 -right-2">
-                            {getResultIcon(horse.result)}
                           </div>
                           
                           {/* Achievement badge */}
