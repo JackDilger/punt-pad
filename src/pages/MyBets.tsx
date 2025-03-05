@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { formatDistance } from "date-fns";
+import { format } from "date-fns";
 import { fractionalToDecimal } from "@/lib/utils/odds";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Input } from "@/components/ui/input";
@@ -660,9 +660,7 @@ export default function MyBets() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatDistance(new Date(editedBet.created_at), new Date(), {
-                        addSuffix: true,
-                      })}
+                      {format(new Date(editedBet.created_at), 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
