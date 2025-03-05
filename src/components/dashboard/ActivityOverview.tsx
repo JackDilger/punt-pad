@@ -2,8 +2,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDistance } from "date-fns";
-import { Pencil, Trash2, Check, X } from "lucide-react";
+import { formatDistance, isWithinInterval, startOfDay, endOfDay, subDays, subYears, format } from "date-fns";
+import { CalendarIcon, Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface BetWithSelections {
   id: string;
@@ -39,6 +57,8 @@ const fractionalToDecimal = (fractional: string): number => {
 export const ActivityOverview = () => {
   const [bets, setBets] = useState<BetWithSelections[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const { session } = useAuth();
 
   useEffect(() => {
@@ -62,18 +82,41 @@ export const ActivityOverview = () => {
     fetchBets();
   }, []);
 
+  const filteredBets = bets.filter(bet => {
+    if (!dateFrom && !dateTo) return true;
+    
+    const betDate = new Date(bet.created_at);
+    
+    if (dateFrom && dateTo) {
+      return isWithinInterval(betDate, { 
+        start: startOfDay(dateFrom), 
+        end: endOfDay(dateTo) 
+      });
+    }
+    
+    if (dateFrom) {
+      return betDate >= startOfDay(dateFrom);
+    }
+    
+    if (dateTo) {
+      return betDate <= endOfDay(dateTo);
+    }
+    
+    return true;
+  });
+
   const calculateStats = () => {
     // Calculate total stake including both parts of each way bets
-    const totalStake = bets.reduce((sum, bet) => {
+    const totalStake = filteredBets.reduce((sum, bet) => {
       const effectiveStake = bet.is_each_way ? bet.stake * 2 : bet.stake;
       return sum + (bet.is_free_bet ? 0 : effectiveStake);
     }, 0);
 
-    const completedBets = bets.filter(bet => bet.status !== "Pending" && bet.status !== "Void");
-    const wonBets = bets.filter(bet => bet.status === "Won" || bet.status === "Placed");
+    const completedBets = filteredBets.filter(bet => bet.status !== "Pending" && bet.status !== "Void");
+    const wonBets = filteredBets.filter(bet => bet.status === "Won" || bet.status === "Placed");
     
     let totalProfit = 0;
-    bets.forEach(bet => {
+    filteredBets.forEach(bet => {
       if (bet.status === "Won" || bet.status === "Placed") {
         const decimalOdds = fractionalToDecimal(bet.total_odds);
         
@@ -130,10 +173,78 @@ export const ActivityOverview = () => {
 
   const stats = calculateStats();
 
+  const getDateRangeText = () => {
+    if (!dateFrom && !dateTo) return "All Time";
+    if (dateFrom && dateTo) {
+      // Check if it matches any preset
+      const today = new Date();
+      const last7Days = subDays(today, 7);
+      const last30Days = subDays(today, 30);
+      const lastYear = subYears(today, 1);
+
+      if (dateFrom >= startOfDay(last7Days) && dateTo <= endOfDay(today)) {
+        return "Last 7 Days";
+      }
+      if (dateFrom >= startOfDay(last30Days) && dateTo <= endOfDay(today)) {
+        return "Last 30 Days";
+      }
+      if (dateFrom >= startOfDay(lastYear) && dateTo <= endOfDay(today)) {
+        return "Last Year";
+      }
+      
+      return `${format(dateFrom, 'dd/MM/yyyy')} - ${format(dateTo, 'dd/MM/yyyy')}`;
+    }
+    return "Select Date Range";
+  };
+
+  const handlePresetRange = (days: number) => {
+    const today = new Date();
+    setDateFrom(subDays(today, days));
+    setDateTo(today);
+  };
+
   return (
     <Card>
       <CardHeader className="pb-4">
-        <CardTitle>Activity Overview</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>Activity Overview</CardTitle>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="min-w-[180px] justify-start">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {getDateRangeText()}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuItem onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+                  <span className="flex items-center">
+                    All Time
+                    {!dateFrom && !dateTo && <Check className="ml-auto h-4 w-4" />}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePresetRange(7)}>
+                  <span className="flex items-center">
+                    Last 7 Days
+                    {dateFrom && dateTo && getDateRangeText() === "Last 7 Days" && <Check className="ml-auto h-4 w-4" />}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePresetRange(30)}>
+                  <span className="flex items-center">
+                    Last 30 Days
+                    {dateFrom && dateTo && getDateRangeText() === "Last 30 Days" && <Check className="ml-auto h-4 w-4" />}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handlePresetRange(365)}>
+                  <span className="flex items-center">
+                    Last Year
+                    {dateFrom && dateTo && getDateRangeText() === "Last Year" && <Check className="ml-auto h-4 w-4" />}
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -180,13 +291,13 @@ export const ActivityOverview = () => {
               <div className="text-sm text-muted-foreground text-center py-4">
                 Loading...
               </div>
-            ) : bets.length === 0 ? (
+            ) : filteredBets.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-4">
                 No bets recorded yet
               </div>
             ) : (
               <div className="space-y-2">
-                {bets.slice(0, 5).map((bet) => (
+                {filteredBets.slice(0, 5).map((bet) => (
                   <div
                     key={bet.id}
                     className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded"
