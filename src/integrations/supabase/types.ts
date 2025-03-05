@@ -20,7 +20,7 @@ export type Database = {
           is_each_way: boolean
           placeterms: number
           is_free_bet: boolean
-          status: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
+          status: 'Pending' | 'Won' | 'Lost' | 'Void'
           potential_return: number | null
         }
         Insert: {
@@ -33,7 +33,7 @@ export type Database = {
           is_each_way?: boolean
           placeterms?: number
           is_free_bet?: boolean
-          status?: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
           potential_return?: number | null
         }
         Update: {
@@ -46,7 +46,7 @@ export type Database = {
           is_each_way?: boolean
           placeterms?: number
           is_free_bet?: boolean
-          status?: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed'
+          status?: 'Pending' | 'Won' | 'Lost' | 'Void'
           potential_return?: number | null
         }
         Relationships: [

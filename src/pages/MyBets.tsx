@@ -56,7 +56,7 @@ interface BetWithSelections {
   is_each_way: boolean;
   place_terms: number;
   is_free_bet: boolean;
-  status: 'Pending' | 'Won' | 'Lost' | 'Void' | 'Placed';
+  status: 'Pending' | 'Won' | 'Lost' | 'Void';
   potential_return: number | null;
   selections: BetSelection[];
 }
@@ -66,7 +66,7 @@ export default function MyBets() {
   const [bets, setBets] = useState<BetWithSelections[]>([]);
   const [sortBy, setSortBy] = useState<"date" | "status" | "profit">("date");
   const [filterBetType, setFilterBetType] = useState<"all" | "Single" | "Accumulator">("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void" | "Placed">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "Pending" | "Won" | "Lost" | "Void">("all");
   const [editingBetId, setEditingBetId] = useState<string | null>(null);
   const [editingBet, setEditingBet] = useState<BetWithSelections | null>(null);
   const { toast } = useToast();
@@ -149,12 +149,6 @@ export default function MyBets() {
       if (bet.is_each_way) {
         const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1; // Convert to place odds properly
         totalReturn += bet.stake * placeOdds; // This includes stake return
-      }
-    } else if (bet.status === "Placed") {
-      // Only the place part won
-      if (bet.is_each_way) {
-        const placeOdds = ((decimalOdds - 1) * bet.place_terms) + 1; // Convert to place odds properly
-        totalReturn = bet.stake * placeOdds; // This includes stake return
       }
     }
 
@@ -249,7 +243,7 @@ export default function MyBets() {
     }
   };
 
-  const handleStatusChange = async (betId: string, selectionId: string, newStatus: BetSelection['status'] | 'Placed') => {
+  const handleStatusChange = async (betId: string, selectionId: string, newStatus: BetSelection['status']) => {
     if (!editingBet) return;
 
     try {
@@ -257,7 +251,7 @@ export default function MyBets() {
       const { error: updateError } = await supabase
         .from('bet_selections')
         .update({
-          status: newStatus === 'Placed' ? 'Pending' : newStatus
+          status: newStatus
         } satisfies Database['public']['Tables']['bet_selections']['Update'])
         .eq('id', selectionId);
 
@@ -273,35 +267,13 @@ export default function MyBets() {
             ...bet,
             selections: bet.selections.map(selection => 
               selection.id === selectionId 
-                ? { ...selection, status: newStatus === 'Placed' ? 'Pending' : newStatus }
+                ? { ...selection, status: newStatus }
                 : selection
             )
           } as BetWithSelections;
         }
         return bet;
       }));
-
-      // If status is 'Placed', update the bet status as well
-      if (newStatus === 'Placed') {
-        const { error: betUpdateError } = await supabase
-          .from('bets')
-          .update({
-            status: 'Placed'
-          } satisfies Database['public']['Tables']['bets']['Update'])
-          .eq('id', betId);
-
-        if (betUpdateError) {
-          console.error('Error updating bet:', betUpdateError);
-          throw betUpdateError;
-        }
-
-        // Update local state for bet status
-        setBets(prevBets => prevBets.map(bet => 
-          bet.id === betId 
-            ? { ...bet, status: 'Placed' } 
-            : bet
-        ));
-      }
     } catch (error) {
       console.error("Error updating bet status:", error);
       toast({
@@ -406,7 +378,6 @@ export default function MyBets() {
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Won">Won</SelectItem>
                 <SelectItem value="Lost">Lost</SelectItem>
-                <SelectItem value="Placed">Placed</SelectItem>
                 <SelectItem value="Void">Void</SelectItem>
               </SelectContent>
             </Select>
@@ -589,7 +560,7 @@ export default function MyBets() {
                             <Select
                               key={selection.id}
                               value={selection.status}
-                              onValueChange={(value: "Pending" | "Won" | "Lost" | "Void" | "Placed") => 
+                              onValueChange={(value: "Pending" | "Won" | "Lost" | "Void") => 
                                 handleStatusChange(editingBetId, selection.id, value)
                               }
                             >
@@ -600,7 +571,6 @@ export default function MyBets() {
                                 <SelectItem value="Pending">Pending</SelectItem>
                                 <SelectItem value="Won">Won</SelectItem>
                                 <SelectItem value="Lost">Lost</SelectItem>
-                                <SelectItem value="Placed">Placed</SelectItem>
                                 <SelectItem value="Void">Void</SelectItem>
                               </SelectContent>
                             </Select>
@@ -616,8 +586,6 @@ export default function MyBets() {
                                 ? "bg-red-50 text-red-700"
                                 : editedBet.status === "Void"
                                 ? "bg-gray-50 text-gray-700"
-                                : editedBet.status === "Placed"
-                                ? "bg-blue-50 text-blue-700"
                                 : "bg-yellow-50 text-yellow-700"
                             }`}
                           >
@@ -634,12 +602,10 @@ export default function MyBets() {
                               ? "text-green-600"
                               : bet.status === "Lost"
                               ? "text-red-600"
-                              : bet.status === "Placed"
-                              ? "text-blue-600"
                               : ""
                           }
                         >
-                          {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : bet.status === "Placed" ? "+" : ""}£
+                          {bet.status === "Won" ? "+" : bet.status === "Lost" ? "-" : ""}£
                           {Math.abs(calculateProfitLoss(bet)).toFixed(2)}
                         </span>
                       ) : (
@@ -649,12 +615,10 @@ export default function MyBets() {
                               ? "text-green-600"
                               : editingBet?.status === "Lost"
                               ? "text-red-600"
-                              : editingBet?.status === "Placed"
-                              ? "text-blue-600"
                               : ""
                           }
                         >
-                          {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : editingBet?.status === "Placed" ? "+" : ""}£
+                          {editingBet?.status === "Won" ? "+" : editingBet?.status === "Lost" ? "-" : ""}£
                           {Math.abs(calculateProfitLoss(editingBet)).toFixed(2)}
                         </span>
                       )}
