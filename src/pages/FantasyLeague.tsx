@@ -110,50 +110,45 @@ interface EditingValues {
   horses: Horse[];
 }
 
+// Helper function to compute the greatest common divisor (GCD)
+const gcd = (a: number, b: number): number => {
+  return b === 0 ? a : gcd(b, a % b);
+};
+
+// Function to approximate a decimal as a fraction using denominators up to maxDenom (default 20)
+const approximateFraction = (num: number, maxDenom: number = 20): [number, number] => {
+  let bestNumerator = 0;
+  let bestDenominator = 1;
+  let bestDiff = Infinity;
+  const tolerance = 1e-9; // Small tolerance for floating point comparisons
+
+  for (let d = 1; d <= maxDenom; d++) {
+    const n = Math.round(num * d);
+    const diff = Math.abs(num - n / d);
+    // If this fraction is a closer approximation, or the error is nearly equal but with a smaller denominator, update the best match
+    if (diff < bestDiff - tolerance || (Math.abs(diff - bestDiff) < tolerance && d < bestDenominator)) {
+      bestDiff = diff;
+      bestNumerator = n;
+      bestDenominator = d;
+    }
+  }
+
+  // Simplify the fraction by dividing both parts by their GCD
+  const divisor = gcd(bestNumerator, bestDenominator);
+  return [bestNumerator / divisor, bestDenominator / divisor];
+};
+
+// Main function to convert decimal odds to fractional odds
 const toFractionalOdds = (decimal: number | null): string => {
-  if (!decimal) return '';
+  if (decimal === null || decimal === undefined) return '';
   
-  // Handle special cases first
-  const specialOdds: Record<number, string> = {
-    1.5: '1/2',
-    1.67: '2/3',
-    1.75: '3/4',
-    2: '1/1',
-    2.5: '6/4',
-    3: '2/1',
-    3.5: '5/2',
-    4: '3/1',
-    4.5: '7/2',
-    5: '4/1',
-    5.5: '9/2',
-    6: '5/1',
-    6.5: '11/2',
-    7: '6/1',
-    8: '7/1',
-    9: '8/1',
-    10: '9/1',
-    11: '10/1'
-  };
-
-  // Check if we have an exact match in our special cases
-  if (specialOdds[decimal]) {
-    return specialOdds[decimal];
-  }
-
-  // For odds above our special cases, convert directly to X/1 format
-  if (decimal > 11) {
-    const numerator = Math.round(decimal - 1);
-    return `${numerator}/1`;
-  }
-
-  // For other odds, find the closest match in our special cases
-  const closest = Object.entries(specialOdds).reduce((prev, [key, value]) => {
-    const prevDiff = Math.abs(parseFloat(prev[0]) - decimal);
-    const currDiff = Math.abs(parseFloat(key) - decimal);
-    return currDiff < prevDiff ? [key, value] : prev;
-  });
-
-  return closest[1];
+  // The fractional odds represent the profit per unit stake
+  const fractionalPart = decimal - 1;
+  
+  // Get the fraction approximation (with denominators up to 20 by default)
+  const [numerator, denominator] = approximateFraction(fractionalPart, 20);
+  
+  return `${numerator}/${denominator}`;
 };
 
 export default function FantasyLeague() {
