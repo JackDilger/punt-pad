@@ -2484,9 +2484,9 @@ export default function FantasyLeague() {
             <div>
               <h3 className="font-medium mb-2">Additional Rules</h3>
               <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                <li>Selections must be made before each day's cutoff time</li>
+                <li>Chips are limited to 1 per day</li>
                 <li>Once submitted, selections cannot be changed</li>
-                <li>Points are awarded based on official race results</li>
+                <li>Not submitting selections will result in 0 points for that day</li>
                 <li>In case of a dead heat, points will be split accordingly</li>
                 <li>Non-runners will receive 0 points</li>
               </ul>
