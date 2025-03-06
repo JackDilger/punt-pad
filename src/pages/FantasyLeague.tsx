@@ -1366,7 +1366,7 @@ export default function FantasyLeague() {
         <div className="flex items-center justify-between bg-muted/10 p-4 rounded-lg">
           <div className="space-y-2 flex-1 max-w-md">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium">Selection Progress</span>
+              <span>Selection Progress</span>
               <span className="text-sm font-medium">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} />
@@ -1408,6 +1408,15 @@ export default function FantasyLeague() {
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-red-700">
               The cutoff time for this day has passed. You can no longer make or change selections.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {!isWindowOpen && !day.selections_submitted && isBeforeCutoff && (
+          <Alert variant="info" className="bg-blue-50 border-blue-200">
+            <Clock className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-700">
+              Submissions are currently closed. You can make your selections 24 hours before the deadline once final declarations are confirmed. Beware current prices and runners are subject to change until this time.
             </AlertDescription>
           </Alert>
         )}
