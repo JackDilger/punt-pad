@@ -1392,13 +1392,11 @@ export default function FantasyLeague() {
               {isBeforeCutoff && !isWindowOpen && !day.selections_submitted && day.cutoff_time && (
                 <TooltipContent>
                   <p>Submissions open 24 hours before the deadline</p>
-                  <p>Opens: {format(new Date(new Date(day.cutoff_time).getTime() - (24 * 60 * 60 * 1000)), 'h:mmaaa')}</p>
-                  <p>Closes: {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
                 </TooltipContent>
               )}
               {!isBeforeCutoff && !day.selections_submitted && (
                 <TooltipContent>
-                  <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                  <p>Selections closed</p>
                 </TooltipContent>
               )}
             </Tooltip>
@@ -2166,7 +2164,7 @@ export default function FantasyLeague() {
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                                    <p>Selections closed</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
