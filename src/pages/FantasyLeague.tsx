@@ -1071,7 +1071,7 @@ export default function FantasyLeague() {
     if (selectedDay.selections_submitted) {
       toast({
         title: "Selections Already Submitted",
-        description: "You cannot apply chips to selections that have already been submitted.",
+        description: "You cannot apply chips to your selections after they have been submitted.",
         variant: "destructive",
       });
       return;
@@ -1263,7 +1263,7 @@ export default function FantasyLeague() {
           <DialogHeader>
             <DialogTitle>Submit Selections for {selectedDay.name}</DialogTitle>
             <DialogDescription>
-              Please review your selections before submitting. Once submitted, selections cannot be changed.
+              Please review your selections before submitting. Once submitted, selections cannot be changed and you will not be able to apply chips to your selections.
             </DialogDescription>
           </DialogHeader>
           
