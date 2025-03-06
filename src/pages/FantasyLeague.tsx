@@ -1566,18 +1566,18 @@ export default function FantasyLeague() {
                           </div>
                         )}
                         <Select
-                          value={race.selected_horse_id?.toString() ?? ""}
+                          value={race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id) ? race.selected_horse_id.toString() : ""}
                           onValueChange={(value) => handleHorseSelect(race.id, value)}
                           disabled={day.selections_submitted || (activeChip !== null && !race.chip) || !isBeforeCutoffTime(day)}
                         >
                           <SelectTrigger 
                             className={cn(
                               "w-[280px] transition-colors",
-                              race.selected_horse_id && "border-green-500 bg-green-50"
+                              race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id) && "border-green-500 bg-green-50"
                             )}
                           >
                             <SelectValue placeholder="Select a horse">
-                              {race.horses?.find(h => h.id === race.selected_horse_id)?.name && (
+                              {race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id) && race.horses?.find(h => h.id === race.selected_horse_id)?.name && (
                                 <div className="flex items-center justify-between w-full">
                                   <span className="truncate mr-4">
                                     {race.horses?.find(h => h.id === race.selected_horse_id)?.name}
