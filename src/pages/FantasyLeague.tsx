@@ -234,6 +234,15 @@ export default function FantasyLeague() {
     return isBefore(now, cutoffTime);
   }, []);
 
+  // Create a function to check if the submission window is open (24 hours before cutoff)
+  const isSubmissionWindowOpen = useCallback((day: FestivalDay | null) => {
+    if (!day || !day.cutoff_time) return false;
+    const now = new Date();
+    const cutoffTime = new Date(day.cutoff_time);
+    const submissionWindowStart = new Date(cutoffTime.getTime() - (24 * 60 * 60 * 1000)); // 24 hours before cutoff
+    return now >= submissionWindowStart;
+  }, []);
+
   useEffect(() => {
     fetchFestivalDays();
   }, []);
@@ -1350,6 +1359,7 @@ export default function FantasyLeague() {
   const renderDayContent = (day: FestivalDay) => {
     const progress = getSelectionProgress(day);
     const { canSubmit, isBeforeCutoff } = getSubmissionStatus(day);
+    const isWindowOpen = isSubmissionWindowOpen(day);
     
     return (
       <div className="space-y-8">
@@ -1361,19 +1371,38 @@ export default function FantasyLeague() {
             </div>
             <Progress value={progress} />
           </div>
-          
-          <Button
-            variant="default"
-            className="bg-primary hover:bg-primary/90 text-white ml-6"
-            onClick={openSubmissionDialog}
-            disabled={day.selections_submitted || !isBeforeCutoff}
-          >
-            {day.selections_submitted 
-              ? <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Selections Submitted</span> 
-              : !isBeforeCutoff 
-                ? <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Cutoff Time Passed</span>
-                : <span className="flex items-center gap-1.5"><Check className="h-4 w-4" /> Submit Selections</span>}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="default"
+                    className="bg-primary hover:bg-primary/90 text-white ml-6"
+                    onClick={openSubmissionDialog}
+                    disabled={day.selections_submitted || !isBeforeCutoff || !isWindowOpen}
+                  >
+                    {day.selections_submitted 
+                      ? <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Selections Submitted</span> 
+                      : !isBeforeCutoff 
+                        ? <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> Cutoff Time Passed</span>
+                        : <span className="flex items-center gap-1.5"><Check className="h-4 w-4" /> Submit Selections</span>}
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {isBeforeCutoff && !isWindowOpen && !day.selections_submitted && day.cutoff_time && (
+                <TooltipContent>
+                  <p>Submissions open 24 hours before the deadline</p>
+                  <p>Opens: {format(new Date(new Date(day.cutoff_time).getTime() - (24 * 60 * 60 * 1000)), 'h:mmaaa')}</p>
+                  <p>Closes: {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                </TooltipContent>
+              )}
+              {!isBeforeCutoff && !day.selections_submitted && (
+                <TooltipContent>
+                  <p>Selections closed at {format(new Date(day.cutoff_time), 'h:mmaaa')}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
         {!isBeforeCutoff && !day.selections_submitted && (
@@ -1555,7 +1584,7 @@ export default function FantasyLeague() {
                           />
                         </div>
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">Horses</h4>
+                          <h4 className="text-sm font-medium">Horses</h4>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1568,7 +1597,7 @@ export default function FantasyLeague() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleMarkAllAsLost}
+                            onClick={() => handleMarkAllAsLost()}
                             className="text-sm"
                           >
                             Mark all as lost
@@ -2446,6 +2475,28 @@ export default function FantasyLeague() {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+      {selectedDay && !selectedDay.selections_submitted && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div>
+                <Button
+                  onClick={() => setSubmissionDialogOpen(true)}
+                  disabled={!getSubmissionStatus(selectedDay).canSubmit}
+                  className="ml-auto"
+                >
+                  Submit Selections
+                </Button>
+              </div>
+            </TooltipTrigger>
+            {!isBeforeCutoffTime(selectedDay) && (
+              <TooltipContent>
+                <p>Selections closed at {format(new Date(selectedDay.cutoff_time), 'h:mmaaa')}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       )}
     </AuthLayout>
   );
