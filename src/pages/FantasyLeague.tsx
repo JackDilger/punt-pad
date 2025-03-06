@@ -2476,28 +2476,6 @@ export default function FantasyLeague() {
           </DialogContent>
         </Dialog>
       )}
-      {selectedDay && !selectedDay.selections_submitted && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Button
-                  onClick={() => setSubmissionDialogOpen(true)}
-                  disabled={!getSubmissionStatus(selectedDay).canSubmit}
-                  className="ml-auto"
-                >
-                  Submit Selections
-                </Button>
-              </div>
-            </TooltipTrigger>
-            {!isBeforeCutoffTime(selectedDay) && (
-              <TooltipContent>
-                <p>Selections closed at {format(new Date(selectedDay.cutoff_time), 'h:mmaaa')}</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      )}
     </AuthLayout>
   );
 }
