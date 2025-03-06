@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { UpdateLeagueTable } from '@/components/UpdateLeagueTable';
 import MyStable from '@/components/MyStable';
+import { useNavigate } from 'react-router-dom';
 
 interface FestivalDay {
   id: string;
@@ -152,6 +153,7 @@ const toFractionalOdds = (decimal: number | null): string => {
 };
 
 export default function FantasyLeague() {
+  const navigate = useNavigate();
   const [selectedDay, setSelectedDay] = useState<FestivalDay | null>(null);
   const [selectedDayTab, setSelectedDayTab] = useState<string | null>(null);
   const [festivalDays, setFestivalDays] = useState<FestivalDay[]>([]);
@@ -1389,7 +1391,7 @@ export default function FantasyLeague() {
       <div className="space-y-8">
         <div className="flex items-center justify-between bg-muted/10 p-4 rounded-lg">
           <div className="space-y-2 flex-1 max-w-md">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Selection Progress</span>
               <span className="text-sm font-medium">{Math.round(progress)}%</span>
             </div>
@@ -2080,6 +2082,11 @@ export default function FantasyLeague() {
     }
   };
 
+  const handleTeamNameModalClose = () => {
+    setTeamNameRequired(false);
+    navigate('/dashboard');
+  };
+
   return (
     <AuthLayout>
       <div className="space-y-6 max-w-6xl mx-auto">
@@ -2331,13 +2338,96 @@ export default function FantasyLeague() {
         </Tabs>
       </div>
       {renderSubmissionDialog()}
+      {teamNameRequired && (
+        <Dialog open={true} onOpenChange={handleTeamNameModalClose}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Enter Your Team Name</DialogTitle>
+              <DialogDescription>
+                Please enter a team name to participate in the Fantasy League
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="teamName">Team Name</Label>
+                <Input
+                  id="teamName"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  placeholder="Enter your team name"
+                  minLength={3}
+                  maxLength={50}
+                  required
+                />
+                {teamName.length > 0 && teamName.length < 3 && (
+                  <p className="text-xs text-red-600">Team name must be at least 3 characters long.</p>
+                )}
+                {teamName.length > 50 && (
+                  <p className="text-xs text-red-600">Team name must be no more than 50 characters long.</p>
+                )}
+              </div>
+              <Button 
+                variant="default" 
+                onClick={saveTeamName}
+                disabled={teamName.length < 3 || teamName.length > 50}
+                className="w-full"
+              >
+                Save Team Name
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      <Dialog open={chipConfirmationOpen} onOpenChange={setChipConfirmationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Chip Application</DialogTitle>
+            <DialogDescription>
+              Please review the details before locking your chip.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-md bg-muted/30">
+              <h3 className="font-medium mb-2">{selectedChip?.name}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{selectedChip?.description}</p>
+              
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Important Rules:</h4>
+                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                  <li>Once applied, this chip will be <span className="font-semibold">permanently locked</span> to this race</li>
+                  <li>You can still change your horse selection until you submit</li>
+                  <li>This action cannot be undone, even if you refresh the page</li>
+                  <li>You can only use one chip per day</li>
+                </ul>
+              </div>
+            </div>
+            
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <p className="text-sm">Are you sure you want to apply the {selectedChip?.name} to this race?</p>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setChipConfirmationOpen(false);
+                setActiveChip(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="default" onClick={handleConfirmChip}>
+              Yes, Lock Chip to Race
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-center gap-2 text-xl">
-              Rules & Points
-            </DialogTitle>
-            <DialogDescription className="text-center pt-4">
+            <DialogTitle>Rules & Points</DialogTitle>
+            <DialogDescription>
               Learn how to play and earn points in the fantasy horse racing league
             </DialogDescription>
           </DialogHeader>
@@ -2440,73 +2530,6 @@ export default function FantasyLeague() {
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={chipConfirmationOpen} onOpenChange={setChipConfirmationOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Chip Application</DialogTitle>
-            <DialogDescription>
-              Please review the details before locking your chip.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 border rounded-md bg-muted/30">
-              <h3 className="font-medium mb-2">{selectedChip?.name}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{selectedChip?.description}</p>
-              
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Important Rules:</h4>
-                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                  <li>Once applied, this chip will be <span className="font-semibold">permanently locked</span> to this race</li>
-                  <li>You can still change your horse selection until you submit</li>
-                  <li>This action cannot be undone, even if you refresh the page</li>
-                  <li>You can only use one chip per day</li>
-                </ul>
-              </div>
-            </div>
-            
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <p className="text-sm">Are you sure you want to apply the {selectedChip?.name} to this race?</p>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setChipConfirmationOpen(false);
-                setActiveChip(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="default" onClick={handleConfirmChip}>
-              Yes, Lock Chip to Race
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {teamNameRequired && (
-        <Dialog open={true} onOpenChange={() => setTeamNameRequired(false)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Enter Your Team Name</DialogTitle>
-              <DialogDescription>
-                Please enter a team name to participate in the Fantasy League
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder="Enter your team name"
-              />
-              <Button variant="default" onClick={saveTeamName}>
-                Save Team Name
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </AuthLayout>
   );
 }
