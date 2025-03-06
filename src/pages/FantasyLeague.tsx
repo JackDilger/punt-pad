@@ -651,6 +651,28 @@ export default function FantasyLeague() {
 
     // If a chip is active, open the confirmation dialog instead of just selecting the horse
     if (activeChip) {
+      // Check if selections are already submitted first
+      if (selectedDay.selections_submitted) {
+        toast({
+          title: "Selections Already Submitted",
+          description: "You cannot apply chips to your selections after they have been submitted.",
+          variant: "destructive",
+        });
+        setActiveChip(null);
+        return;
+      }
+
+      // Then check if any chip has been used for this day
+      if (hasChipForDay(selectedDay.id)) {
+        toast({
+          title: "Chip Not Allowed",
+          description: "You can only use one chip per day.",
+          variant: "destructive",
+        });
+        setActiveChip(null);
+        return;
+      }
+
       // Find the chip object to display in the confirmation dialog
       const chipToApply = chips.find(c => c.id === activeChip);
       if (chipToApply) {
@@ -1065,9 +1087,7 @@ export default function FantasyLeague() {
   const handleChipClick = (chipId: ChipType) => {
     if (!selectedDay) return;
 
-    console.log("DEBUG - handleChipClick - selectedDay:", selectedDay);
-
-    // Check if selections for this day have already been submitted
+    // Check if selections for this day have already been submitted - do this first
     if (selectedDay.selections_submitted) {
       toast({
         title: "Selections Already Submitted",
@@ -1077,7 +1097,7 @@ export default function FantasyLeague() {
       return;
     }
 
-    // First check if this specific chip is already used
+    // Then check if this specific chip is already used
     const isChipAlreadyUsed = chips.find(c => c.id === chipId)?.used;
     if (isChipAlreadyUsed) {
       toast({
@@ -1088,31 +1108,8 @@ export default function FantasyLeague() {
       return;
     }
 
-    // Check if any race on the current day already has a chip
-    const hasChipForCurrentDay = selectedDay.races.some(race => {
-      const hasChip = race.chip !== undefined;
-      if (hasChip) {
-        console.log("DEBUG - Found race with chip:", race);
-      }
-      return hasChip;
-    });
-
-    console.log("DEBUG - hasChipForCurrentDay from races:", hasChipForCurrentDay);
-
-    // Also check selections for this day that might not be reflected in the UI yet
-    const selectionsWithChips = selections.filter(s => 
-      // Only check selections for the current day
-      s.day_id === selectedDay.id && 
-      // And that have a chip
-      s.chip !== undefined
-    );
-    
-    const hasChipInSelections = selectionsWithChips.length > 0;
-    
-    console.log("DEBUG - selections for current day with chips:", selectionsWithChips);
-    console.log("DEBUG - hasChipInSelections:", hasChipInSelections);
-
-    if (hasChipForCurrentDay || hasChipInSelections) {
+    // Finally check if any chip is used for the current day
+    if (hasChipForDay(selectedDay.id)) {
       toast({
         title: "Chip Already Used",
         description: "You can only use one chip per day. You have already used a chip for this day's selections.",
@@ -1127,6 +1124,22 @@ export default function FantasyLeague() {
       title: `${chips.find(c => c.id === chipId)?.name} Activated`,
       description: "Select a horse to apply this chip. Click the chip again to cancel.",
     });
+  };
+
+  const hasChipForDay = (dayId: string) => {
+    // Check submitted selections
+    const hasSubmittedChip = festivalDays
+      .find(d => d.id === dayId)
+      ?.races.some(r => r.chip !== undefined) ?? false;
+
+    // Check local storage
+    const storageKey = `unsubmitted_selections_${dayId}`;
+    const storedSelections = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    const hasStoredChip = Object.keys(storedSelections).some(key => 
+      key.startsWith('chip_') && storedSelections[key]
+    );
+
+    return hasSubmittedChip || hasStoredChip;
   };
 
   const handleConfirmChip = async () => {
