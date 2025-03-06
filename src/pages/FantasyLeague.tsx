@@ -1130,7 +1130,7 @@ export default function FantasyLeague() {
     // Check submitted selections
     const hasSubmittedChip = festivalDays
       .find(d => d.id === dayId)
-      ?.races.some(r => r.chip !== undefined) ?? false;
+      ?.races.some(race => race.chip !== undefined) ?? false;
 
     // Check local storage
     const storageKey = `unsubmitted_selections_${dayId}`;
@@ -1272,75 +1272,86 @@ export default function FantasyLeague() {
 
     return (
       <Dialog open={submissionDialogOpen} onOpenChange={setSubmissionDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="pb-2">
             <DialogTitle>Submit Selections for {selectedDay.name}</DialogTitle>
-            <DialogDescription>
-              Please review your selections before submitting. Once submitted, selections cannot be changed and you will not be able to apply chips to your selections.
+            <DialogDescription className="space-y-1">
+              <p className="text-sm">Please review your selections before submitting.</p>
+              <div className="bg-muted p-2 rounded-lg">
+                <p className="font-semibold text-destructive text-xs">Important:</p>
+                <ul className="list-disc pl-4 text-xs space-y-0.5">
+                  <li>Once submitted, selections <span className="font-semibold">cannot be changed</span></li>
+                  <li>After submission, you <span className="font-semibold">cannot apply chips</span> to your selections</li>
+                </ul>
+              </div>
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-sm font-medium">Selection Progress</span>
-                <span className="text-sm font-medium">{Math.round(progress)}%</span>
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">Selection Progress</span>
+                <span className="font-medium">{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} />
             </div>
 
             {selectedRaces > 0 && emptyRaces.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-3 w-3" />
+                <AlertDescription className="text-xs">
                   You have {emptyRaces.length} races without selections:
-                  <ul className="list-disc list-inside mt-2">
-                    {emptyRaces.map(race => (
-                      <li key={race}>{race}</li>
-                    ))}
-                  </ul>
+                  <div className="max-h-[80px] overflow-y-auto mt-1 pr-1">
+                    <ul className="list-disc list-inside">
+                      {emptyRaces.map(race => (
+                        <li key={race}>{race}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
 
             {selectedRaces > 0 && (
-              <Alert>
-                <Check className="h-4 w-4" />
-                <AlertDescription>
+              <Alert className="py-2">
+                <Check className="h-3 w-3" />
+                <AlertDescription className="text-xs">
                   Selections made for {selectedRaces} out of {totalRaces} races:
-                  <ul className="list-disc list-inside mt-2">
-                    {selectedDay.races
-                      .filter(race => race.selected_horse_id)
-                      .map(race => {
-                        const selectedHorse = race.horses.find(h => h.id === race.selected_horse_id);
-                        return (
-                          <li key={race.id}>
-                            {race.name} - {selectedHorse?.name}
-                            {race.chip && ` (${race.chip})`}
-                          </li>
-                        );
-                      })}
-                  </ul>
+                  <div className="mt-1 max-h-[100px] overflow-y-auto pr-1">
+                    <ul className="list-disc list-inside">
+                      {selectedDay.races
+                        .filter(race => race.selected_horse_id)
+                        .map(race => {
+                          const selectedHorse = race.horses.find(h => h.id === race.selected_horse_id);
+                          return (
+                            <li key={race.id}>
+                              {race.name} - <span className="font-semibold">{selectedHorse?.name}</span>
+                              {race.chip && <span className="ml-1 text-primary">({race.chip})</span>}
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
 
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4" />
+            <div className="flex items-center gap-2 text-xs">
+              <Clock className="h-3 w-3" />
               <span>Submission cutoff time: {cutoffTime}</span>
             </div>
 
             {!isBeforeCutoff && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-3 w-3" />
+                <AlertDescription className="text-xs">
                   The cutoff time for submissions has passed.
                 </AlertDescription>
               </Alert>
             )}
           </div>
 
-          <DialogFooter className="sm:justify-between">
+          <DialogFooter className="sm:justify-between pt-2">
             <Button
               type="button"
               variant="secondary"
