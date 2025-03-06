@@ -1270,7 +1270,7 @@ export default function FantasyLeague() {
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span>Selection Progress</span>
+                <span className="text-sm font-medium">Selection Progress</span>
                 <span className="text-sm font-medium">{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} />
@@ -1366,7 +1366,7 @@ export default function FantasyLeague() {
         <div className="flex items-center justify-between bg-muted/10 p-4 rounded-lg">
           <div className="space-y-2 flex-1 max-w-md">
             <div className="flex items-center justify-between mb-1">
-              <span>Selection Progress</span>
+              <span className="text-sm font-medium">Selection Progress</span>
               <span className="text-sm font-medium">{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} />
