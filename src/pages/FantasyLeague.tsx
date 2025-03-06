@@ -1413,7 +1413,7 @@ export default function FantasyLeague() {
         )}
         
         {!isWindowOpen && !day.selections_submitted && isBeforeCutoff && (
-          <Alert variant="info" className="bg-blue-50 border-blue-200">
+          <Alert className="bg-blue-50 border-blue-200">
             <Clock className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-700">
               Submissions are currently closed. You can make your selections 24 hours before the deadline once final declarations are confirmed. Beware current prices and runners are subject to change until this time.
