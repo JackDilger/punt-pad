@@ -190,11 +190,11 @@ export default function FantasyLeague() {
       {
         id: 'doubleChance',
         name: '🎯 Double Chance',
-        description: 'Improve your odds! The Double Chance chip counts a second-place finish as a win, giving you the full win points even if your horse finishes just behind the leader.',
+        description: 'Improve your odds! The Double Chance chip counts a place finish as a win, giving you the full win points even if your horse finishes just behind the leader.',
         howItWorks: [
           'Click "Play Double Chance" to activate the chip.',
           'Choose the race selection you want to apply it to.',
-          'Earn full win points if your selection finishes first or second.',
+          'Earn full win points if your selection places.',
           'Once applied, the chip cannot be moved to another selection.',
         ],
         used: usedChips.has('doubleChance'),
