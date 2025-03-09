@@ -2424,10 +2424,12 @@ export default function FantasyLeague() {
         </DialogContent>
       </Dialog>
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rules & Points</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="text-center">
+            <DialogTitle className="flex items-center justify-center gap-2 text-xl">
+              Rules & Points
+            </DialogTitle>
+            <DialogDescription className="text-center pt-4">
               Learn how to play and earn points in the fantasy horse racing league
             </DialogDescription>
           </DialogHeader>
