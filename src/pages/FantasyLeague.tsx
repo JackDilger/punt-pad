@@ -776,7 +776,9 @@ export default function FantasyLeague() {
   const getSelectionProgress = useCallback((day: FestivalDay) => {
     if (!day) return 0;
     const totalRaces = day.races.length;
-    const selectedRaces = day.races.filter(race => race.selected_horse_id).length;
+    const selectedRaces = day.races.filter(race => 
+      race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id)
+    ).length;
     return (selectedRaces / totalRaces) * 100;
   }, []);
 
@@ -1261,7 +1263,9 @@ export default function FantasyLeague() {
 
     // Calculate progress and empty selections directly here to ensure latest state
     const totalRaces = selectedDay.races.length;
-    const selectedRaces = selectedDay.races.filter(race => race.selected_horse_id).length;
+    const selectedRaces = selectedDay.races.filter(race => 
+      race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id)
+    ).length;
     const progress = totalRaces > 0 ? (selectedRaces / totalRaces) * 100 : 0;
 
     // Get empty races for display
@@ -1322,7 +1326,9 @@ export default function FantasyLeague() {
                   <div className="mt-1 max-h-[100px] overflow-y-auto pr-1">
                     <ul className="list-disc list-inside">
                       {selectedDay.races
-                        .filter(race => race.selected_horse_id)
+                        .filter(race => 
+                          race.selected_horse_id && race.horses?.some(h => h.id === race.selected_horse_id)
+                        )
                         .map(race => {
                           const selectedHorse = race.horses.find(h => h.id === race.selected_horse_id);
                           return (
