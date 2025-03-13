@@ -2157,22 +2157,22 @@ export default function FantasyLeague() {
           onValueChange={(value) => setActiveTab(value)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/30 p-0.5 rounded-lg">
+          <TabsList className="flex w-full mb-6 bg-muted/30 p-0.5 rounded-lg overflow-x-auto">
             <TabsTrigger 
               value="selections"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm flex-1 min-w-[100px]"
             >
               Selections
             </TabsTrigger>
             <TabsTrigger 
               value="my-stable"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm flex-1 min-w-[100px]"
             >
               My Stable
             </TabsTrigger>
             <TabsTrigger 
               value="league-table"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white font-medium rounded-md py-1.5 text-sm flex-1 min-w-[100px]"
             >
               League Table
             </TabsTrigger>
@@ -2187,13 +2187,13 @@ export default function FantasyLeague() {
                   </div>
                 ) : (
                   <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
-                    <TabsList className="w-full bg-muted/20 p-0 rounded-none border-b">
+                    <TabsList className="w-full bg-muted/20 p-0 rounded-none border-b flex overflow-x-auto">
                       {festivalDays.map((day) => (
                         <TabsTrigger
                           key={day.id}
                           value={day.id}
                           onClick={() => setSelectedDay(day)}
-                          className="flex-1 rounded-none data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary flex flex-col items-center space-y-1 py-2 px-3 transition-all"
+                          className="flex-none rounded-none data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary flex flex-col items-center space-y-1 py-2 px-3 transition-all"
                           disabled={loading}
                         >
                           <div className="flex items-center gap-1.5">
