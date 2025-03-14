@@ -7,7 +7,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import Snowfall from 'react-snowfall';
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -23,13 +22,6 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          {/* Always show snowfall */}
-          <div style={{ position: 'fixed', width: '100%', height: '100%', zIndex: 1000, pointerEvents: 'none' }}>
-            <Snowfall 
-              snowflakeCount={300}
-              style={{ position: 'fixed', width: '100%', height: '100%' }}
-            />
-          </div>
           <Toaster />
           <Sonner />
           <Analytics />
