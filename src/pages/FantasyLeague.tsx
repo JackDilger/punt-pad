@@ -560,11 +560,18 @@ export default function FantasyLeague() {
         .select(`
           id,
           user_id,
-          total_points
+          total_points,
+          updated_at
         `)
         .order('total_points', { ascending: false });
       
       if (standingsError) throw standingsError;
+      
+      console.log('Raw standings data:', standingsData?.map(s => ({
+        user_id: s.user_id,
+        points: s.total_points,
+        updated: s.updated_at
+      })));
       
       // Get user profiles
       const { data: profilesData, error: profilesError } = await supabase

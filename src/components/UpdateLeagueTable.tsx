@@ -87,19 +87,16 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
       }
     }
 
-    // Apply chip multipliers
+    // Apply chip multipliers BEFORE returning points
     if (chip === 'superBoost') {
-      if (isWin) {
-        points *= 10; // 10x points for super boost win
-        console.log('Points after super boost win:', points);
-      } else if (isPlace) {
-        points *= 10; // 10x points for super boost place
-        console.log('Points after super boost place:', points);
+      if (isWin || isPlace) { // Combine conditions for cleaner code
+        points *= 10; // 10x points for super boost
+        console.log('Points after super boost:', points);
       }
     } else if (chip === 'tripleThreat') {
-      if (isWin) {
-        points *= 3; // Triple points for win
-        console.log('Points after triple threat win:', points);
+      if (isWin || isPlace) { // Combine conditions for cleaner code
+        points *= 3; // Triple points for win or place
+        console.log('Points after triple threat win/place:', points);
       } else if (isLoss) {
         // For loss, use the win points but make them negative and triple them
         let lossPoints = 0;
@@ -206,18 +203,39 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
           selection.chip
         );
         
+        console.log('Points calculation details:', {
+          result: horse.result,
+          odds,
+          chip: selection.chip,
+          calculatedPoints: points,
+          horseName: horse.name,
+          userId: selection.user_id
+        });
+        
         if (!userPoints[selection.user_id]) {
           userPoints[selection.user_id] = 0;
         }
         userPoints[selection.user_id] += points;
-        console.log(`User ${selection.user_id} now has ${userPoints[selection.user_id]} points`);
+        console.log(`User ${selection.user_id} total points updated:`, {
+          newPoints: points,
+          totalPoints: userPoints[selection.user_id],
+          selections: selections.filter(s => s.user_id === selection.user_id).length
+        });
       });
 
       console.log('Final user points:', userPoints);
 
       // 3. Update league_standings table
       for (const [userId, points] of Object.entries(userPoints)) {
-        console.log(`Updating standings for user ${userId} with ${points} points`);
+        console.log(`Updating standings for user ${userId}:`, {
+          points,
+          selections: selections.filter(s => s.user_id === userId).map(s => ({
+            horse: s.fantasy_horses.name,
+            result: s.fantasy_horses.result,
+            chip: s.chip,
+            odds: s.fantasy_horses.fixed_odds
+          }))
+        });
         
         try {
           // Try update first
