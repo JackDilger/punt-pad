@@ -26,6 +26,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { UpdateLeagueTable } from '@/components/UpdateLeagueTable';
 import MyStable from '@/components/MyStable';
 import { useNavigate } from 'react-router-dom';
+import { WinnerBanner } from '@/components/WinnerBanner';
 
 interface FestivalDay {
   id: string;
@@ -224,6 +225,7 @@ export default function FantasyLeague() {
   const [teamNameRequired, setTeamNameRequired] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [leagueFinished, setLeagueFinished] = useState(false); 
   
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
@@ -487,6 +489,18 @@ export default function FantasyLeague() {
         }));
         setSelections(typedSelections);
       }
+      
+      // Check if league is finished after loading days
+      const processedDays = loadUnsubmittedSelectionsFromStorage(days);
+      const day4 = processedDays.find(day => day.day_number === 4);
+      if (day4) {
+        const lastRace = [...day4.races].sort((a, b) => b.race_order - a.race_order)[0];
+        if (lastRace) {
+          const hasResults = lastRace.horses.some(horse => horse.result !== null);
+          setLeagueFinished(hasResults);
+        }
+      }
+      
     } catch (error) {
       console.error("Error fetching festival days:", error);
       toast({
@@ -2093,6 +2107,30 @@ export default function FantasyLeague() {
     navigate('/dashboard');
   };
 
+  // Check if the league is finished (last race of day 4 has results)
+  const checkIfLeagueIsFinished = useCallback(() => {
+    // Find day 4
+    const day4 = festivalDays.find(day => day.day_number === 4);
+    if (!day4) return false;
+    
+    // Find the last race of day 4
+    const lastRace = [...day4.races].sort((a, b) => b.race_order - a.race_order)[0];
+    if (!lastRace) return false;
+    
+    // Check if the last race has at least one horse with a result
+    const hasResults = lastRace.horses.some(horse => horse.result !== null);
+    
+    return hasResults;
+  }, [festivalDays]);
+
+  useEffect(() => {
+    // Check if league is finished whenever festival days are updated
+    if (festivalDays.length > 0) {
+      const isFinished = checkIfLeagueIsFinished();
+      setLeagueFinished(isFinished);
+    }
+  }, [festivalDays, checkIfLeagueIsFinished]);
+
   return (
     <AuthLayout>
       <div className="space-y-6 max-w-6xl mx-auto">
@@ -2261,6 +2299,14 @@ export default function FantasyLeague() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Winner Banner - Show when league is finished and we have standings */}
+                    {leagueFinished && leagueStandings.length > 0 && (
+                      <WinnerBanner 
+                        winnerName={leagueStandings[0]?.team_name || leagueStandings[0]?.username || 'Champion'} 
+                        points={leagueStandings[0]?.total_points || 0} 
+                      />
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <h3 className="font-medium">Rankings</h3>
                       <Button
@@ -2344,91 +2390,6 @@ export default function FantasyLeague() {
         </Tabs>
       </div>
       {renderSubmissionDialog()}
-      {teamNameRequired && (
-        <Dialog open={true} onOpenChange={handleTeamNameModalClose}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Enter Your Team Name</DialogTitle>
-              <DialogDescription>
-                Please enter a team name to participate in the Fantasy League
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="teamName">Team Name</Label>
-                <Input
-                  id="teamName"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="Enter your team name"
-                  minLength={3}
-                  maxLength={50}
-                  required
-                />
-                {teamName.length > 0 && teamName.length < 3 && (
-                  <p className="text-xs text-red-600">Team name must be at least 3 characters long.</p>
-                )}
-                {teamName.length > 50 && (
-                  <p className="text-xs text-red-600">Team name must be no more than 50 characters long.</p>
-                )}
-              </div>
-              <Button 
-                variant="default" 
-                onClick={saveTeamName}
-                disabled={teamName.length < 3 || teamName.length > 50}
-                className="w-full"
-              >
-                Save Team Name
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-      <Dialog open={chipConfirmationOpen} onOpenChange={setChipConfirmationOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Chip Application</DialogTitle>
-            <DialogDescription>
-              Please review the details before locking your chip.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 border rounded-md bg-muted/30">
-              <h3 className="font-medium mb-2">{selectedChip?.name}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{selectedChip?.description}</p>
-              
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Important Rules:</h4>
-                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                  <li>Once applied, this chip will be <span className="font-semibold">permanently locked</span> to this race</li>
-                  <li>You can still change your horse selection until you submit</li>
-                  <li>This action cannot be undone, even if you refresh the page</li>
-                  <li>You can only use one chip per day</li>
-                </ul>
-              </div>
-            </div>
-            
-            <Alert>
-              <AlertTriangle className="h-4 w-4" />
-              <p className="text-sm">Are you sure you want to apply the {selectedChip?.name} to this race?</p>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setChipConfirmationOpen(false);
-                setActiveChip(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="default" onClick={handleConfirmChip}>
-              Yes, Lock Chip to Race
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader className="text-center">
@@ -2502,6 +2463,47 @@ export default function FantasyLeague() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={chipConfirmationOpen} onOpenChange={setChipConfirmationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Chip Application</DialogTitle>
+            <DialogDescription>
+              Please review the details before locking your chip.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-md bg-muted/30">
+              <h3 className="font-medium mb-2">{selectedChip?.name}</h3>
+              <p className="text-sm text-muted-foreground">{selectedChip?.description}</p>
+            </div>
+            
+            <Alert variant="destructive" className="py-2">
+              <AlertTriangle className="h-3 w-3" />
+              <AlertDescription className="text-xs">
+                Once applied, this chip cannot be removed or changed.
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setChipConfirmationOpen(false);
+                setActiveChip(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmChip}
+            >
+              Apply Chip
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={chipModalOpen} onOpenChange={setChipModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader className="text-center">
@@ -2512,6 +2514,7 @@ export default function FantasyLeague() {
               {selectedChip?.description}
             </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4">
             <div>
               <h3 className="font-medium mb-2">How It Works:</h3>
@@ -2521,6 +2524,7 @@ export default function FantasyLeague() {
                 ))}
               </ul>
             </div>
+
             <p className="text-sm text-muted-foreground text-center italic">
               Reminder: You can only play one chip per day.
             </p>
@@ -2535,6 +2539,44 @@ export default function FantasyLeague() {
                 {selectedChip?.buttonText}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={teamNameRequired} onOpenChange={handleTeamNameModalClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Enter Your Team Name</DialogTitle>
+            <DialogDescription>
+              Please enter a team name to participate in the Fantasy League
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="teamName">Team Name</Label>
+              <Input
+                id="teamName"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Enter your team name"
+                minLength={3}
+                maxLength={50}
+                required
+              />
+              {teamName.length > 0 && teamName.length < 3 && (
+                <p className="text-xs text-red-600">Team name must be at least 3 characters long.</p>
+              )}
+              {teamName.length > 50 && (
+                <p className="text-xs text-red-600">Team name must be no more than 50 characters long.</p>
+              )}
+            </div>
+            <Button 
+              variant="default" 
+              onClick={saveTeamName}
+              disabled={teamName.length < 3 || teamName.length > 50}
+              className="w-full"
+            >
+              Save Team Name
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
