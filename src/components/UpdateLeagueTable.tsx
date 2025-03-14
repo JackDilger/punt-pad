@@ -74,40 +74,34 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
       // Place points based on odds ranges
       if (decimalOdds <= 3) { // Up to 2/1
         points = 5;
-        console.log(`Place points for odds up to 2/1: ${points}`);
       } else if (decimalOdds <= 5) { // Up to 4/1
         points = 7;
-        console.log(`Place points for odds up to 4/1: ${points}`);
       } else if (decimalOdds <= 9) { // Up to 8/1
         points = 10;
-        console.log(`Place points for odds up to 8/1: ${points}`);
       } else { // Over 8/1
         points = 12;
-        console.log(`Place points for odds over 8/1: ${points}`);
+      }
+
+      // For place finishes, apply triple threat right here
+      if (chip === 'tripleThreat') {
+        points *= 3;
       }
     }
 
-    // Apply chip multipliers BEFORE returning points
-    if (chip === 'superBoost') {
-      if (isWin || isPlace) { // Combine conditions for cleaner code
-        points *= 10; // 10x points for super boost
-        console.log('Points after super boost:', points);
-      }
-    } else if (chip === 'tripleThreat') {
-      if (isWin || isPlace) { // Combine conditions for cleaner code
-        points *= 3; // Triple points for win or place
-        console.log('Points after triple threat win/place:', points);
-      } else if (isLoss) {
-        // For loss, use the win points but make them negative and triple them
-        let lossPoints = 0;
-        if (decimalOdds <= 3) lossPoints = 15;
-        else if (decimalOdds <= 5) lossPoints = 20;
-        else if (decimalOdds <= 9) lossPoints = 25;
-        else lossPoints = 30;
-        
-        points = lossPoints * -3;
-        console.log('Points after triple threat loss:', points);
-      }
+    // Handle super boost separately since it can apply to both wins and places
+    if (chip === 'superBoost' && (isWin || isPlace)) {
+      points *= 10;
+    } else if (chip === 'tripleThreat' && isWin) {
+      points *= 3;
+    } else if (chip === 'tripleThreat' && isLoss) {
+      // For loss, use the win points but make them negative and triple them
+      let lossPoints = 0;
+      if (decimalOdds <= 3) lossPoints = 15;
+      else if (decimalOdds <= 5) lossPoints = 20;
+      else if (decimalOdds <= 9) lossPoints = 25;
+      else lossPoints = 30;
+      
+      points = lossPoints * -3;
     }
 
     console.log('Final points:', points);
