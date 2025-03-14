@@ -81,17 +81,12 @@ export function UpdateLeagueTable({ onUpdate }: Props) {
       } else { // Over 8/1
         points = 12;
       }
-
-      // For place finishes, apply triple threat right here
-      if (chip === 'tripleThreat') {
-        points *= 3;
-      }
     }
 
-    // Handle super boost separately since it can apply to both wins and places
+    // Handle all chip multipliers
     if (chip === 'superBoost' && (isWin || isPlace)) {
       points *= 10;
-    } else if (chip === 'tripleThreat' && isWin) {
+    } else if (chip === 'tripleThreat' && (isWin || isPlace)) {
       points *= 3;
     } else if (chip === 'tripleThreat' && isLoss) {
       // For loss, use the win points but make them negative and triple them
