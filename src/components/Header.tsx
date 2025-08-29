@@ -92,12 +92,7 @@ export const Header = () => {
     { id: "dashboard", label: "Dashboard", to: "/dashboard" },
     { id: "my-bets", label: "My Bets", to: "/my-bets" },
     { id: "fantasy-league", label: "Fantasy League", to: "/fantasy-league" }
-  ] : [
-    { id: "pricing", label: "Pricing", to: "/" },
-    { id: "features", label: "Features", to: "/" },
-    { id: "about", label: "About", to: "/" },
-    { id: "blog", label: "Blog", to: "/" },
-  ];
+  ] : [];
 
   return (
     <header 
