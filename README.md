@@ -29,23 +29,23 @@ Punt Pad is a comprehensive sports betting tracker and fantasy league platform d
 
 ## 📱 Screenshots
 
+### Landing Page - Multi-Device View
+![Landing page showcasing the app across desktop, tablet and mobile devices](docs/screenshots/Dashboard.png)
+
 ### Dashboard - Bet Entry & Activity Overview
-![Dashboard showing bet entry form and activity statistics with ROI tracking](docs/screenshots/dashboard.png)
+![Dashboard showing bet entry form and activity statistics with ROI tracking](docs/screenshots/betdashboard.png)
 
 ### My Bets - Comprehensive Bet Management
-![My Bets page showing detailed betting history with filters and edit capabilities](docs/screenshots/my-bets.png)
+![My Bets page showing detailed betting history with filters and edit capabilities](docs/screenshots/mybets.png)
 
 ### Fantasy League - Stable View
-![Fantasy stable showing horse selections with power-up chips and results](docs/screenshots/fantasy-stable.png)
+![Fantasy stable showing horse selections with power-up chips and results](docs/screenshots/stable.png)
 
 ### Fantasy League - Leaderboards
-![Dynamic leaderboard showing player rankings, points, and chip usage](docs/screenshots/fantasy-leaderboard.png)
+![Dynamic leaderboard showing player rankings, points, and chip usage](docs/screenshots/leaderboard.png)
 
 ### Fantasy League - Selection Interface
-![Fantasy selection interface showing power-up chips and race selection](docs/screenshots/fantasy-selection.png)
-
-### Landing Page - Multi-Device View
-![Landing page showcasing the app across desktop, tablet and mobile devices](docs/screenshots/landing-page.png)
+![Fantasy selection interface showing power-up chips and race selection](docs/screenshots/selections.png)
 
 ## 🚀 Tech Stack
 
