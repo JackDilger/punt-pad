@@ -30,7 +30,7 @@ Punt Pad is a comprehensive sports betting tracker and fantasy league platform d
 ## 📱 Screenshots
 
 ### Landing Page - Multi-Device View
-![Landing page showcasing the app across desktop, tablet and mobile devices](docs/screenshots/Dashboard.png)
+![Landing page showcasing the app across desktop, tablet and mobile devices](docs/screenshots/dashboard.png)
 
 ### Dashboard - Bet Entry & Activity Overview
 ![Dashboard showing bet entry form and activity statistics with ROI tracking](docs/screenshots/betdashboard.png)
