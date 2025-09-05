@@ -30,3 +30,6 @@ dist-ssr
 
 # Supabase
 supabase/.temp/
+
+# Claude Code documentation
+CLAUDE.md
