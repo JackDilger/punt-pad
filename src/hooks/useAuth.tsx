@@ -28,9 +28,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      // Log the user ID for admin setup
-      console.log('Current user ID:', session.user.id);
-      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('role')
@@ -38,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) throw error;
-      
+
       setIsAdmin(profile.role === 'admin');
     } catch (error) {
       console.error('Error checking admin status:', error);
