@@ -19,13 +19,49 @@ export interface Bet {
 
 export const createBet = async (bet: Bet) => {
   try {
-    console.log('Creating bet with:', bet);
+    // Validate stake
+    if (!bet.stake || bet.stake <= 0 || bet.stake > 100000) {
+      throw new Error('Stake must be between £0.01 and £100,000');
+    }
+
+    // Validate selections
+    if (!bet.selections || bet.selections.length === 0) {
+      throw new Error('At least one selection is required');
+    }
+
+    if (bet.selections.length > 20) {
+      throw new Error('Maximum 20 selections allowed');
+    }
+
+    // Validate and sanitize selection inputs
+    bet.selections.forEach((selection, index) => {
+      if (!selection.event || selection.event.trim().length === 0) {
+        throw new Error(`Selection ${index + 1}: Event name is required`);
+      }
+      if (selection.event.length > 200) {
+        throw new Error(`Selection ${index + 1}: Event name too long (max 200 characters)`);
+      }
+      if (!selection.horse || selection.horse.trim().length === 0) {
+        throw new Error(`Selection ${index + 1}: Horse/selection name is required`);
+      }
+      if (selection.horse.length > 200) {
+        throw new Error(`Selection ${index + 1}: Horse/selection name too long (max 200 characters)`);
+      }
+      if (!selection.odds || selection.odds.trim().length === 0) {
+        throw new Error(`Selection ${index + 1}: Odds are required`);
+      }
+    });
+
+    // Validate total odds
+    const winOdds = parseFloat(bet.total_odds);
+    if (isNaN(winOdds) || winOdds <= 0 || winOdds > 10000) {
+      throw new Error('Invalid odds value');
+    }
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
 
     // Calculate potential returns
-    const winOdds = parseFloat(bet.total_odds);
     let potentialReturn = bet.stake * winOdds;
     
     if (bet.is_each_way) {
